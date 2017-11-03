@@ -992,6 +992,10 @@ enum sk_action {
 
 #define BPF_TAG_SIZE	8
 
+enum bpf_prog_status {
+	BPF_PROG_STATUS_DEV_BOUND	= (1 << 0),
+};
+
 struct bpf_prog_info {
 	__u32 type;
 	__u32 id;
@@ -1000,6 +1004,13 @@ struct bpf_prog_info {
 	__u32 xlated_prog_len;
 	__aligned_u64 jited_prog_insns;
 	__aligned_u64 xlated_prog_insns;
+	__u64 load_time;	/* ns since boottime */
+	__u32 created_by_uid;
+	__u32 nr_map_ids;
+	__aligned_u64 map_ids;
+	char name[BPF_OBJ_NAME_LEN];
+	__u32 ifindex;
+	__u32 status;
 } __attribute__((aligned(8)));
 
 struct bpf_map_info {
