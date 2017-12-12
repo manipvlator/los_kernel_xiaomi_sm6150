@@ -1,20 +1,9 @@
-/*
- * Copyright (c) 2016 Samsung Electronics Co., Ltd.
- * Copyright (C) 2021 XiaoMi, Inc.
- * Author: Andi Shyti <andi.shyti@samsung.it>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * SPI driven IR LED device driver
- */
-#include <linux/init.h>
-#include <linux/device.h>
-#include <linux/err.h>
-#include <linux/list.h>
-#include <linux/errno.h>
-#include <linux/compat.h>
+// SPDX-License-Identifier: GPL-2.0
+// SPI driven IR LED device driver
+//
+// Copyright (c) 2016 Samsung Electronics Co., Ltd.
+// Copyright (c) Andi Shyti <andi.shyti@samsung.com>
+
 #include <linux/delay.h>
 #include <linux/kthread.h>
 
