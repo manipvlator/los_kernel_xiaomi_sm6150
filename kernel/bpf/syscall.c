@@ -1868,6 +1868,12 @@ static int bpf_map_get_info_by_fd(struct bpf_map *map,
 	info.max_entries = map->max_entries;
 	info.map_flags = map->map_flags;
 
+	if (bpf_map_is_dev_bound(map)) {
+		err = bpf_map_offload_info_fill(&info, map);
+		if (err)
+			return err;
+	}
+
 	if (copy_to_user(uinfo, &info, info_len) ||
 	    put_user(info_len, &uattr->info.info_len))
 		return -EFAULT;
