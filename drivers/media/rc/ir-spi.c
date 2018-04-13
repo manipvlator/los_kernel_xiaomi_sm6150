@@ -2,7 +2,7 @@
 // SPI driven IR LED device driver
 //
 // Copyright (c) 2016 Samsung Electronics Co., Ltd.
-// Copyright (c) Andi Shyti <andi.shyti@samsung.com>
+// Copyright (c) Andi Shyti <andi@etezian.org>
 
 #include <linux/delay.h>
 #include <linux/kthread.h>
@@ -279,6 +279,6 @@ static struct spi_driver ir_spi_driver = {
 
 module_spi_driver(ir_spi_driver);
 
-MODULE_AUTHOR("Andi Shyti <andi.shyti@samsung.com>");
+MODULE_AUTHOR("Andi Shyti <andi@etezian.org>");
 MODULE_DESCRIPTION("SPI IR LED");
 MODULE_LICENSE("GPL v2");
