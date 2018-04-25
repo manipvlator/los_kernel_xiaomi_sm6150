@@ -1984,6 +1984,10 @@ static int bpf_prog_get_info_by_fd(struct bpf_prog *prog,
 
 	info.type = prog->type;
 	info.id = prog->aux->id;
+	info.load_time = prog->aux->load_time;
+	info.created_by_uid = from_kuid_munged(current_user_ns(),
+					       prog->aux->user->uid);
+	info.gpl_compatible = prog->gpl_compatible;
 
 	memcpy(info.tag, prog->tag, sizeof(prog->tag));
 	memcpy(info.name, prog->aux->name, sizeof(prog->aux->name));
