@@ -1094,6 +1094,7 @@ enum count_type {
 	F2FS_DIRTY_NODES,
 	F2FS_DIRTY_META,
 	F2FS_DIRTY_IMETA,
+	F2FS_INMEM_PAGES,
 	F2FS_WB_CP_DATA,
 	F2FS_WB_DATA,
 	F2FS_RD_DATA,
@@ -1122,7 +1123,11 @@ enum page_type {
 	META,
 	NR_PAGE_TYPE,
 	META_FLUSH,
-	IPU,		/* the below types are used by tracepoints only. */
+	INMEM,		/* the below types are used by tracepoints only. */
+	INMEM_DROP,
+	INMEM_INVALIDATE,
+	INMEM_REVOKE,
+	IPU,
 	OPU,
 };
 
@@ -1315,6 +1320,7 @@ enum {
 	GC_IDLE_CB,
 	GC_IDLE_GREEDY,
 	GC_IDLE_AT,
+	GC_URGENT,
 	GC_URGENT_HIGH,
 	GC_URGENT_LOW,
 	GC_URGENT_MID,

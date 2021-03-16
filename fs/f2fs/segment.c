@@ -1705,6 +1705,9 @@ static int issue_discard_thread(void *data)
 		}
 		if (!atomic_read(&dcc->discard_cmd_cnt))
 			continue;
+		if (sbi->gc_mode == GC_URGENT ||
+			!f2fs_available_free_memory(sbi, DISCARD_CACHE))
+			__init_discard_policy(sbi, &dpolicy, DPOLICY_FORCE, 1);
 
 		sb_start_intwrite(sbi->sb);
 
