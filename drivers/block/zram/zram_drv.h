@@ -56,6 +56,14 @@ enum zram_pageflags {
 
 /*-- Data structures */
 
+struct zram_entry {
+	struct rb_node rb_node;
+	u32 len;
+	u64 checksum;
+	unsigned long refcount;
+	unsigned long handle;
+};
+
 /* Allocated for each disk page */
 struct zram_table_entry {
 	union {
