@@ -6922,8 +6922,8 @@ static bool qc3p5_vbus_timeout_check(struct smb_charger *chg,
 	return true;
 }
 
-#define	QC3P5_T_TA_DETECTION_TIMEOUT_PMIC_MS	200
-#define	QC3P5_T_TA_CAP_TIMEOUT_PMIC_MS			250
+#define	QC3P5_T_TA_DETECTION_TIMEOUT_PMIC_MS	1000
+#define	QC3P5_T_TA_CAP_TIMEOUT_PMIC_MS			1000
 #define	VBUS_5P5_V_UV							5500000
 #define	VBUS_6P4_V_UV							6400000
 #define	VBUS_6P65_V_UV							6650000
