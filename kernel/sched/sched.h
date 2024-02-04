@@ -2943,7 +2943,9 @@ extern int alloc_related_thread_groups(void);
 
 extern unsigned long all_cluster_ids[];
 
+#ifdef CONFIG_SCHED_WALT
 extern void check_for_migration(struct rq *rq, struct task_struct *p);
+#endif /* bye walt */
 
 static inline int is_reserved(int cpu)
 {
@@ -3054,7 +3056,9 @@ static inline bool task_placement_boost_enabled(struct task_struct *p)
 	return false;
 }
 
+#ifdef CONFIG_SCHED_WALT
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
+#endif /* bye walt */
 
 static inline int sched_boost(void)
 {
