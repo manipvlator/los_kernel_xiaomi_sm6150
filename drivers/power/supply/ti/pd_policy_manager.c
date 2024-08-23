@@ -44,7 +44,8 @@
 #define BAT_CURR_LOOP_LMT		BATT_FAST_CHG_CURR
 #define BUS_VOLT_LOOP_LMT		BUS_OVP_THRESHOLD
 
-#define PM_WORK_RUN_INTERVAL		100
+//config monitor time (ms)
+#define PM_WORK_RUN_INTERVAL		500
 
 enum {
 	PM_ALGO_RET_OK,
