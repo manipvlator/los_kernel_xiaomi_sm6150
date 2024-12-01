@@ -604,7 +604,7 @@ And public attribution of xiaomi platforms(like F3 and so and)
 &qupv3_se8_spi {
 	status = "ok";
 	irled@0 {
-		compatible = "ir-spi-led";
+		compatible = "ir-spi-xiaomi";
 		reg = <0x0>;
 		power-supply = <&irda_regulator>;
 		status = "ok";
