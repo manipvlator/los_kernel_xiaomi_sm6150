@@ -337,17 +337,41 @@ static int usbpd_set_new_fcc_voter(struct usbpd_pm *pdpm)
 
 static void usbpd_check_cp_psy(struct usbpd_pm *pdpm)
 {
-	if (!pdpm->cp_psy) {
-		if (pm_config.cp_sec_enable)
-			pdpm->cp_psy = power_supply_get_by_name("bq2597x-master");
-		else
-			pdpm->cp_psy = power_supply_get_by_name("bq2597x-standalone");
-		if (!pdpm->cp_psy) {
-			pdpm->cp_psy = power_supply_get_by_name("ln8000");
-			if (!pdpm->cp_psy)
-				pr_err("cp_psy not found\n");
-		}
-	}
+
+    const char *cp_psy_names[] = {
+        "bq2597x-master",
+        "bq2597x-standalone",
+        "ln8000",
+        NULL
+    };
+    int retries = 3;
+    int i;
+
+    if (pdpm->cp_psy) {
+        pr_info("cp_psy already set: %s\n", pdpm->cp_psy->desc->name);
+        return;
+    }
+
+    while (retries--) {
+        for (i = 0; cp_psy_names[i]; i++) {
+            pr_info("Searching for cp_psy: %s\n", cp_psy_names[i]);
+            pdpm->cp_psy = power_supply_get_by_name(cp_psy_names[i]);
+            if (pdpm->cp_psy) {
+                pr_info("Found cp_psy: %s\n", cp_psy_names[i]);
+                return;
+            }
+        }
+
+        if (!pdpm->cp_psy) {
+            pr_info("cp_psy not found, retrying... (%d retries left)\n", retries);
+            msleep(100);
+        }
+    }
+
+    if (!pdpm->cp_psy) {
+        pr_err("cp_psy not found after retries\n");
+    }
+
 }
 
 static void usbpd_check_ln8000_chg(struct usbpd_pm *pdpm)
