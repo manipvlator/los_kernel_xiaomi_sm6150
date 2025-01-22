@@ -85,6 +85,7 @@ do {                                                                    \
 #define LN8000_ROLE(info) (LN8000_IS_PRIMARY(info) ? "prim" : "sec ")
 #define LN8000_USE_GPIO(pdata) ((pdata != NULL) && (!IS_ERR_OR_NULL(pdata->irq_gpio)))
 #define LN8000_STATUS(val, mask) ((val & mask) ? true : false)
+static int ln8000_change_opmode(struct ln8000_info *info, unsigned int target_mode);
 
 /**
  * I2C control functions : when occurred I2C tranfer fault, we 
@@ -469,14 +470,27 @@ static void ln8000_convert_adc_code(struct ln8000_info *info, unsigned int ch, u
         adc_raw   = ((sts[1] & 0x03)<<8) | (sts[0] & 0xFF);
         adc_final = adc_raw * LN8000_ADC_IIN_STEP;//uA
         break;
-      case LN8000_ADC_CH_DIETEMP:
-        adc_raw   = ((sts[1] & 0x0F)<<6) | ((sts[0] & 0xFC)>>2);
-        adc_final = (935 - adc_raw) * LN8000_ADC_DIETEMP_STEP / LN8000_ADC_DIETEMP_DENOM;//dC
-        if (adc_final > LN8000_ADC_DIETEMP_MAX)
-           adc_final = LN8000_ADC_DIETEMP_MAX;
-        else if (adc_final < LN8000_ADC_DIETEMP_MIN)
-           adc_final = LN8000_ADC_DIETEMP_MIN;
-        break;
+case LN8000_ADC_CH_DIETEMP: {
+    int temp_dc;
+    adc_raw   = ((sts[1] & 0x0F) << 6) | ((sts[0] & 0xFC) >> 2);
+    ln_info("Raw ADC bytes: sts[0]=0x%02X, sts[1]=0x%02X\n", sts[0], sts[1]);
+    ln_info("Raw ADC value for die temperature: 0x%04X\n", adc_raw);
+
+    adc_final = (adc_raw * LN8000_ADC_DIETEMP_STEP) / LN8000_ADC_DIETEMP_DENOM;  // dC
+    temp_dc = adc_final / 10;
+
+    ln_info("Current die temperature: %d°C\n", temp_dc);
+
+    if (temp_dc > 1600) {
+        temp_dc = 1600;
+        ln_err("Die temperature exceeds maximum limit: %d°C\n", temp_dc);
+        ln8000_change_opmode(info, LN8000_OPMODE_STANDBY);
+    } else if (temp_dc < -250) {
+        temp_dc = -250;
+    }
+    *result = temp_dc;
+    break;
+}
       case LN8000_ADC_CH_TSBAT:
         adc_raw   = ((sts[1] & 0x3F)<<4) | ((sts[0] & 0xF0)>>4);
         adc_final = adc_raw * LN8000_ADC_NTCV_STEP;//(NTC) uV
