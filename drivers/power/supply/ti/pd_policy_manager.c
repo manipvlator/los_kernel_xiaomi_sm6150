@@ -485,7 +485,7 @@ static void usbpd_pm_update_cp_status(struct usbpd_pm *pdpm)
 	ret = power_supply_get_property(pdpm->cp_psy,
 			POWER_SUPPLY_PROP_TI_DIE_TEMPERATURE, &val);
 	if (!ret)
-		pdpm->cp.die_temp = val.intval;
+		pdpm->cp.die_temp = val.intval / 10;
 
 	ret = power_supply_get_property(pdpm->cp_psy,
 			POWER_SUPPLY_PROP_TI_BATTERY_PRESENT, &val);
