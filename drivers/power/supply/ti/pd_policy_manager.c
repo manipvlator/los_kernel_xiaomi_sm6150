@@ -44,7 +44,7 @@
 #define BAT_CURR_LOOP_LMT		BATT_FAST_CHG_CURR
 #define BUS_VOLT_LOOP_LMT		BUS_OVP_THRESHOLD
 
-#define PM_WORK_RUN_INTERVAL		100
+#define PM_WORK_RUN_INTERVAL		500
 
 enum {
 	PM_ALGO_RET_OK,
@@ -196,7 +196,6 @@ static bool pd_disable_cp_by_jeita_status(struct usbpd_pm *pdpm)
 
 	batt_temp = pval.intval;
 	pr_debug("batt_temp: %d\n", batt_temp);
-
 	if (batt_temp >= JEITA_WARM_THR && !pdpm->jeita_triggered) {
 		pdpm->jeita_triggered = true;
 		return true;
@@ -766,6 +765,7 @@ static void usbpd_pm_evaluate_src_caps(struct usbpd_pm *pdpm)
 	int ret;
 	int i;
 	union power_supply_propval pval = {0, };
+	int apdo_max = 0;
 
 	if (!pdpm->pd) {
 		pdpm->pd = smb_get_usbpd();
@@ -787,6 +787,13 @@ static void usbpd_pm_evaluate_src_caps(struct usbpd_pm *pdpm)
 	for (i = 0; i < PDO_MAX_NUM; i++) {
 		if (pdpm->pdo[i].type == PD_SRC_PDO_TYPE_AUGMENTED
 			&& pdpm->pdo[i].pps && pdpm->pdo[i].pos) {
+			if (pdpm->pdo[i].max_volt_mv > 11000)
+				pdpm->pdo[i].max_volt_mv = 11000;
+			if (apdo_max < ((pdpm->pdo[i].max_volt_mv/1000) * (pdpm->pdo[i].curr_ma/10) / 100)) {
+				apdo_max = (pdpm->pdo[i].max_volt_mv/1000) * (pdpm->pdo[i].curr_ma/10) / 100;
+			}
+			pr_err("%s max_volt:%d, curr_ma:%d, apdo_max:%d\n", __func__,
+							pdpm->pdo[i].max_volt_mv, pdpm->pdo[i].curr_ma, apdo_max);
 			if (pdpm->pdo[i].max_volt_mv >= pdpm->apdo_max_volt
 					&& pdpm->pdo[i].curr_ma >= pdpm->apdo_max_curr
 					&& pdpm->pdo[i].max_volt_mv <= APDO_MAX_VOLT) {
@@ -805,7 +812,10 @@ static void usbpd_pm_evaluate_src_caps(struct usbpd_pm *pdpm)
 				pdpm->apdo_max_curr);
 		if (pdpm->apdo_max_curr <= LOW_POWER_PPS_CURR_THR)
 			pdpm->apdo_max_curr = XIAOMI_LOW_POWER_PPS_CURR_MAX;
-		pval.intval = (pdpm->apdo_max_volt / 1000) * (pdpm->apdo_max_curr / 1000);
+		pval.intval = (pdpm->apdo_max_volt / 1000) * (pdpm->apdo_max_curr / 10) / 100;
+		if (pval.intval < apdo_max) {
+			pval.intval = apdo_max;
+		}
 		power_supply_set_property(pdpm->usb_psy,
 				POWER_SUPPLY_PROP_APDO_MAX, &pval);
 	} else {
@@ -1018,8 +1028,8 @@ static int usbpd_pm_fc2_charge_algo(struct usbpd_pm *pdpm)
 	if (ln8000_is_valid)
 		pdpm->request_current = min(pdpm->apdo_max_curr, curr_ibus_limit);
 
-	if (pdpm->apdo_max_volt == PPS_VOL_MAX)
-		pdpm->apdo_max_volt = pdpm->apdo_max_volt - PPS_VOL_HYS;
+//	if (pdpm->apdo_max_volt == PPS_VOL_MAX)
+//		pdpm->apdo_max_volt = pdpm->apdo_max_volt - PPS_VOL_HYS;
 
 	if (pdpm->request_voltage > pdpm->apdo_max_volt)
 		pdpm->request_voltage = pdpm->apdo_max_volt;
@@ -1365,9 +1375,12 @@ static void usbpd_pm_disconnect(struct usbpd_pm *pdpm)
 
 	cancel_delayed_work_sync(&pdpm->pm_work);
 
-	if (pdpm->fcc_votable)
+	if (pdpm->fcc_votable) {
 		vote(pdpm->fcc_votable, BQ_TAPER_FCC_VOTER,
 				false, 0);
+		vote(pdpm->fcc_votable, PD_UNVERIFED_VOTER,
+				false, 0);
+	}
 	pdpm->pps_supported = false;
 	pdpm->jeita_triggered = false;
 	pdpm->is_temp_out_fc2_range = false;
@@ -1412,8 +1425,19 @@ static void usbpd_pps_non_verified_contact(struct usbpd_pm *pdpm, bool connected
 
 	if (connected) {
 		usbpd_pm_evaluate_src_caps(pdpm);
-		if (pdpm->pps_supported)
+		if (pdpm->pps_supported){
+			if (!pdpm->fcc_votable)
+				pdpm->fcc_votable = find_votable("FCC");
+
+			if ((pdpm->apdo_max_volt / 1000) * (pdpm->apdo_max_curr / 1000) < 33) {
+				if (pdpm->fcc_votable)
+					vote(pdpm->fcc_votable, PD_UNVERIFED_VOTER, true, PD_UNVERIFED_CURRENT_LOW);
+			} else {
+				if (pdpm->fcc_votable)
+					vote(pdpm->fcc_votable, PD_UNVERIFED_VOTER, true, PD_UNVERIFED_CURRENT_HIGH);
+			}
 			schedule_delayed_work(&pdpm->pm_work, 5*HZ);
+		}
 	} else {
 		usbpd_pm_disconnect(pdpm);
 	}

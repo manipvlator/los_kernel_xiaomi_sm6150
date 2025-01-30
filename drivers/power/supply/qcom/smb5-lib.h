@@ -104,6 +104,7 @@ enum print_reason {
 #define BATT_VERIFY_VOTER		"BATT_VERIFY_VOTER"
 
 #define PD_VERIFED_VOTER		"PD_VERIFED_VOTER"
+#define PD_UNVERIFED_VOTER  		"PD_UNVERIFED_VOTER"
 #define PD_REMOVE_COMP_VOTER		"PD_REMOVE_COMP_VOTER"
 
 /* used for bq charge pump solution */

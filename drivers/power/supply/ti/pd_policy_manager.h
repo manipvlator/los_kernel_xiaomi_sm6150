@@ -68,9 +68,12 @@ enum pm_state {
 /* voters for usbpd */
 #define STEP_BMS_CHG_VOTER	"STEP_BMS_CHG_VOTER"
 #define BQ_TAPER_FCC_VOTER	"BQ_TAPER_FCC_VOTER"
+#define PD_UNVERIFED_VOTER  "PD_UNVERIFED_VOTER"
 
 /* defined for non_verified pps charger maxium fcc */
 #define NON_VERIFIED_PPS_FCC_MAX		3000
+#define PD_UNVERIFED_CURRENT_LOW        4300000
+#define PD_UNVERIFED_CURRENT_HIGH       5600000
 #define MAX_THERMAL_LEVEL			13
 /* jeita related */
 #define JEITA_WARM_THR			480

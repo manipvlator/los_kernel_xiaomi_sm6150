@@ -782,6 +782,9 @@ update_time:
 #define JEITA_SUSPEND_HYST_UV		130000
 #define JEITA_SIX_PIN_BATT_HYST_UV	100000
 #define WARM_VFLOAT_UV			4100000
+#define BATT_HOT_SHUTDOWN_TEMP    580
+#define BATT_TOO_COLD_TEMP        -100
+
 static int handle_jeita(struct step_chg_info *chip)
 {
 	union power_supply_propval pval = {0, };
@@ -791,6 +794,8 @@ static int handle_jeita(struct step_chg_info *chip)
 	int temp, pd_authen_result = 0;
 	static bool fast_mode_dis;
 	int chg_term_current = 0, batt_soc = 0, batt_temp = 0;
+	static int last_fcc_ua = 0;
+	static struct votable *chg_disable_votable;
 
 	rc = power_supply_get_property(chip->batt_psy,
 		POWER_SUPPLY_PROP_SW_JEITA_ENABLED, &pval);
@@ -845,11 +850,43 @@ static int handle_jeita(struct step_chg_info *chip)
 	rc = get_val(chip->jeita_fcc_config->fcc_cfg,
 			chip->jeita_fcc_config->param.hysteresis,
 			chip->jeita_fcc_index,
-			pval.intval,
+			temp,
 			&chip->jeita_fcc_index,
 			&fcc_ua);
 	if (rc < 0)
 		fcc_ua = 0;
+
+	rc = power_supply_get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+	if (rc < 0) {
+		pr_err("Get battery voltage failed, rc = %d\n", rc);
+		fcc_ua = 0;
+	}
+	curr_vbat_uv = pval.intval;
+
+	if (temp < 0 && temp >= (-100)) {
+		if (curr_vbat_uv < 4200000) {
+			if (last_fcc_ua == 735000 && curr_vbat_uv > 4100000)
+				fcc_ua = 735000;
+			else
+				fcc_ua = 900000;
+		} else
+			fcc_ua = 735000;
+		last_fcc_ua = fcc_ua;
+		pr_err("%S -10 - 0, ibat = %d\n", __func__, fcc_ua);
+	}
+
+	if (!chg_disable_votable)
+		chg_disable_votable = find_votable("CHG_DISABLE");
+	if (temp > BATT_HOT_SHUTDOWN_TEMP
+		|| temp < BATT_TOO_COLD_TEMP) {
+		pr_err("battery too hot/cold, not charging");
+		if (chg_disable_votable)
+			vote(chg_disable_votable, BATT_HOT_SHUTDOWN_TEMP_VOTER, true, 0);
+	} else if (is_client_vote_enabled_locked(chg_disable_votable, BATT_HOT_SHUTDOWN_TEMP_VOTER)) {
+		if (chg_disable_votable)
+			vote(chg_disable_votable, BATT_HOT_SHUTDOWN_TEMP_VOTER, false, 0);
+	}
 
 	if (!chip->fcc_votable)
 		chip->fcc_votable = find_votable("FCC");
@@ -865,14 +902,14 @@ static int handle_jeita(struct step_chg_info *chip)
 	rc = get_val(chip->jeita_fv_config->fv_cfg,
 			chip->jeita_fv_config->param.hysteresis,
 			chip->jeita_fv_index,
-			pval.intval,
+			temp,
 			&chip->jeita_fv_index,
 			&fv_uv);
 	if (rc < 0)
 		fv_uv = 0;
 
 	if (chip->ffc_iterm_change_by_temp) {
-		batt_temp = pval.intval;
+		batt_temp = temp;
 		rc = power_supply_get_property(chip->bms_psy,
 					POWER_SUPPLY_PROP_CAPACITY, &pval);
 		if (rc < 0) {
@@ -1031,6 +1068,7 @@ static int handle_jeita(struct step_chg_info *chip)
 	}
 
 set_jeita_fv:
+
 	vote(chip->fv_votable, JEITA_VOTER, fv_uv ? true : false, fv_uv);
 
 update_time:
