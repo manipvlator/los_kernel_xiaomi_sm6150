@@ -652,7 +652,9 @@ static int usbpd_pm_check_cp_sec_enabled(struct usbpd_pm *pdpm)
 			POWER_SUPPLY_PROP_CHARGING_ENABLED, &val);
 	if (!ret)
 		pdpm->cp_sec.charge_enabled = !!val.intval;
-	pr_debug("pdpm->cp_sec.charge_enabled:%d\n", pdpm->cp_sec.charge_enabled);
+	
+	pr_info("pdpm->cp_sec.charge_enabled:%d\n", pdpm->cp_sec.charge_enabled);
+	
 	return ret;
 }
 
@@ -1028,9 +1030,11 @@ static int usbpd_pm_fc2_charge_algo(struct usbpd_pm *pdpm)
 	if (ln8000_is_valid)
 		pdpm->request_current = min(pdpm->apdo_max_curr, curr_ibus_limit);
 
-//	if (pdpm->apdo_max_volt == PPS_VOL_MAX)
-//		pdpm->apdo_max_volt = pdpm->apdo_max_volt - PPS_VOL_HYS;
+	pr_info("steps: %d, pdpm->request_voltage: %d\n", steps, pdpm->request_voltage);
 
+	if (pdpm->apdo_max_volt == PPS_VOL_MAX)
+
+		pdpm->apdo_max_volt = pdpm->apdo_max_volt - PPS_VOL_HYS;
 	if (pdpm->request_voltage > pdpm->apdo_max_volt)
 		pdpm->request_voltage = pdpm->apdo_max_volt;
 
@@ -1141,6 +1145,7 @@ static int usbpd_pm_sm(struct usbpd_pm *pdpm)
 			curr_ibus_lmt = curr_fcc_lmt >> 1;
 
 		pdpm->request_voltage = pdpm->cp.vbat_volt * 2 + BUS_VOLT_INIT_UP;
+
 		pdpm->request_current = min(pdpm->apdo_max_curr, curr_ibus_lmt);
 
 		usbpd_select_pdo(pdpm->pd, pdpm->apdo_selected_pdo,
