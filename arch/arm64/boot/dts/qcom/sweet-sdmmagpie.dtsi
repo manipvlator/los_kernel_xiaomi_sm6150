@@ -17,7 +17,15 @@ And public attribution of xiaomi platforms(like F3 and so and)
 		regulator-boot-on;
 		gpio = <&tlmm 90 0>;
 	};*/
-
+    
+    fingerprint_fortsense {
+		compatible = "fs,fingerprint";
+		fs,gpio-reset = <&tlmm 58 0x0>;
+		fs,gpio-irq = <&tlmm 57 0x0>;
+        fs_vdd-supply = <&L7C>;
+        status = "ok";
+	};
+	
 	fingerprint_fpc {
 		status = "ok";
 		compatible = "fpc,fpc1020";
