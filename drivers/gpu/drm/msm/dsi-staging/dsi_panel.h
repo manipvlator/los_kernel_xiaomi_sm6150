@@ -40,6 +40,11 @@
 
 #define BUF_LEN_MAX    256
 
+
+#define DEMURA_LEVEL_02 256
+#define DEMURA_LEVEL_08 11
+#define DEMURA_LEVEL_0D 1
+
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
 	DSI_PANEL_ROTATE_HV_FLIP,
@@ -92,6 +97,9 @@ struct dsi_dfps_capabilities {
 	u32 *dfps_list;
 	u32 dfps_list_len;
 	bool dfps_support;
+	/* smart fps control */
+	bool smart_fps_support;
+	u32 smart_fps_value;
 };
 
 struct dsi_dyn_clk_caps {
@@ -127,8 +135,15 @@ struct dsi_backlight_config {
 	u32 bl_scale;
 	u32 bl_scale_ad;
 	bool bl_inverted_dbv;
+	bool dcs_type_ss_ea;
+	bool dcs_type_ss_eb;
+	bool xiaomi_f4_36_flag;
+	bool xiaomi_f4_41_flag;
 
 	int en_gpio;
+
+	bool bl_remap_flag;
+	bool samsung_prepare_hbm_flag;
 	/* PWM params */
 	struct pwm_device *pwm_bl;
 	bool pwm_enabled;
@@ -167,6 +182,7 @@ struct drm_panel_esd_config {
 	bool esd_enabled;
 
 	enum esd_check_status_mode status_mode;
+	struct dsi_panel_cmd_set offset_cmd;
 	struct dsi_panel_cmd_set status_cmd;
 	u32 *status_cmds_rlen;
 	u32 *status_valid_params;
@@ -221,6 +237,9 @@ struct dsi_panel {
 
 	struct dsi_parser_utils utils;
 
+	bool is_tddi_flag;
+	bool panel_dead_flag;
+
 	bool lp11_init;
 	bool ulps_feature_enabled;
 	bool ulps_suspend_enabled;
@@ -242,31 +261,59 @@ struct dsi_panel {
 	enum dsi_panel_physical_type panel_type;
 
 	u32 panel_on_dimming_delay;
+	struct delayed_work cmds_work;
 	struct delayed_work nolp_bl_delay_work;
 	u32 last_bl_lvl;
+	s32 backlight_delta;
+	u32 backlight_demura_level; /* For the f4_41 panel */
+	u32 backlight_pulse_threshold;
 	/* DC bkl */
+	u32 dc_demura_threshold;
 	bool dc_enable;
+	bool backlight_pulse_flag; /* true = 4 pulse and false = 1 pulse */
 	u32 dc_threshold;
+	bool k6_dc_flag;
 
 	bool hbm_enabled;
 	bool thermal_hbm_disabled;
 	u32 hbm_brightness;
 	u32 doze_backlight_threshold;
-	u32 hbm_off_51_index;
-
-	u8 panel_read_data[BUF_LEN_MAX];
-
-	bool in_aod; /* set  DISPPARAM_DOZE_BRIGHTNESS_HBM/LBM only in AOD */
-	int doze_brightness;
-
-	int doze_lbm_brightness;
-	int doze_hbm_brightness;
-
 	bool doze_enabled;
 	enum dsi_doze_mode_type doze_mode;
 
-	int hbm_mode;
-	bool resend_ea_hbm;
+	bool fod_hbm_enabled;
+	bool fod_dimlayer_enabled;
+	bool fod_dimlayer_hbm_enabled;
+	u32 fod_ui_ready;
+	u32 fod_off_dimming_delay;
+	ktime_t fod_backlight_off_time;
+	ktime_t fod_hbm_off_time;
+	bool f4_51_ctrl_flag; /* For the f4_36 panel */
+	u32 hbm_ntfy_skip_flag;
+	u32 hbm_off_51_index;
+	u32 fod_off_51_index;
+
+	bool elvss_dimming_check_enable;
+	struct dsi_read_config elvss_dimming_cmds;
+	struct dsi_panel_cmd_set elvss_dimming_offset;
+	struct dsi_panel_cmd_set hbm_fod_on;
+	struct dsi_panel_cmd_set hbm_fod_off;
+
+	u8 panel_read_data[BUF_LEN_MAX];
+	struct dsi_read_config xy_coordinate_cmds;
+
+	bool fod_backlight_flag;
+	bool fod_flag;
+	u32 fod_target_backlight;
+	bool fod_skip_flag; /* optimize to skip nolp command */
+	bool in_aod; /* set  DISPPARAM_DOZE_BRIGHTNESS_HBM/LBM only in AOD */
+	int doze_brightness;
+	bool panel_max_frame_rate;
+
+	bool nolp_command_set_backlight_enabled;
+	bool oled_panel_video_mode;
+	int doze_lbm_brightness;
+	int doze_hbm_brightness;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -390,8 +437,6 @@ void dsi_panel_ext_bridge_put(struct dsi_panel *panel);
 int dsi_panel_set_doze_status(struct dsi_panel *panel, bool status);
 
 int dsi_panel_set_doze_mode(struct dsi_panel *panel, enum dsi_doze_mode_type mode);
-
-int dsi_panel_apply_hbm_mode(struct dsi_panel *panel);
 
 int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt);
 int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,

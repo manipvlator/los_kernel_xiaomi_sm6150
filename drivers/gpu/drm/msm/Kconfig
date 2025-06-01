@@ -179,13 +179,6 @@ config DRM_MSM_DSI_14NM_PHY
 	help
 	  Choose this option if DSI PHY on 8996 is used on the platform.
 
-config EXPOSURE_ADJUSTMENT
-	bool "Enable exposure adjustment driver"
-	depends on DRM_MSM
-	help
-          The EXPOSURE ADJUSTMENT provides exposure adjustment function without change
-          panel hardware brightness to avoid PWM flicker on OLED devices.
-
 config DRM_SDE_EVTLOG_DEBUG
 	bool "Enable event logging in MSM DRM"
 	depends on DRM_MSM
@@ -205,3 +198,7 @@ config DRM_SDE_RSC
 	  avoids the display core power collapse. A client can also register
 	  for display core power collapse events on rsc.
 
+config DRM_SDE_XLOG_DEBUG
+ 	bool "Trigger a panic after the dumping work has completed when SDE error"
+ 	depends on DRM_MSM
+ 	default n

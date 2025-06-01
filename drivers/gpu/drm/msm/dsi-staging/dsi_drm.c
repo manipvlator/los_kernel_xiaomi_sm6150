@@ -15,6 +15,8 @@
 
 
 #define pr_fmt(fmt)	"dsi-drm:[%s] " fmt, __func__
+#include <linux/msm_drm_notify.h>
+
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_atomic.h>
 #include <linux/msm_drm_notify.h>
@@ -28,6 +30,7 @@
 #include "dsi_panel.h"
 #include "sde_trace.h"
 #include "sde_encoder.h"
+#include "dsi_defs.h"
 
 #define to_dsi_bridge(x)     container_of((x), struct dsi_bridge, base)
 #define to_dsi_state(x)      container_of((x), struct dsi_connector_state, base)
@@ -43,6 +46,10 @@ static struct dsi_display_mode_priv_info default_priv_info = {
 	.panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES,
 	.dsc_enabled = false,
 };
+
+#define WAIT_RESUME_TIMEOUT 200
+
+struct dsi_bridge *gbridge;
 
 static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 				struct dsi_display_mode *dsi_mode)
@@ -179,6 +186,7 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	struct drm_device *dev = bridge->dev;
 	int event = 0;
 	struct msm_drm_notifier notify_data;
+	int power_mode;
 
 	if (dev->doze_state == MSM_DRM_BLANK_POWERDOWN) {
 		dev->doze_state = MSM_DRM_BLANK_UNBLANK;
@@ -198,6 +206,11 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 	}
 
+	power_mode = sde_connector_get_lp(c_bridge->display->drm_conn);
+	notify_data.data = &power_mode;
+	notify_data.id = MSM_DRM_PRIMARY_DISPLAY;
+	msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK, &notify_data);
+
 	/* By this point mode should have been validated through mode_fixup */
 	rc = dsi_display_set_mode(c_bridge->display,
 			&(c_bridge->dsi_mode), 0x0);
@@ -211,7 +224,14 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 
 	if (atomic_read(&c_bridge->display_active)) {
 		cancel_delayed_work_sync(&c_bridge->pd_work);
-		return;
+		if (c_bridge->display->panel->panel_mode == DSI_OP_VIDEO_MODE) {
+			pr_debug("skip set display config for video panel in fpc\n");
+			return;
+		} else if (c_bridge->display->panel->panel_mode == DSI_OP_CMD_MODE &&
+			c_bridge->dsi_mode.dsi_mode_flags != DSI_MODE_FLAG_DMS) {
+			pr_debug("skip set display config because timming not switch for command panel\n");
+			return;
+		}
 	}
 
 	msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK, &notify_data);
@@ -246,6 +266,8 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK, &notify_data);
 
 	SDE_ATRACE_END("dsi_display_enable");
+
+	msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK, &notify_data);
 
 	rc = dsi_display_splash_res_cleanup(c_bridge->display);
 	if (rc)
@@ -440,6 +462,7 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 	struct drm_device *dev = bridge->dev;
 	struct msm_drm_notifier notify_data;
 	int event = 0;
+	int power_mode;
 
 	if (dev->doze_state == MSM_DRM_BLANK_UNBLANK) {
 		dev->doze_state = MSM_DRM_BLANK_POWERDOWN;
@@ -453,6 +476,12 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 		pr_err("Invalid params\n");
 		return;
 	}
+
+
+	power_mode = sde_connector_get_lp(c_bridge->display->drm_conn);
+	notify_data.data = &power_mode;
+	notify_data.id = MSM_DRM_PRIMARY_DISPLAY;
+	msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK, &notify_data);
 
 	SDE_ATRACE_BEGIN("dsi_bridge_post_disable");
 	SDE_ATRACE_BEGIN("dsi_display_disable");

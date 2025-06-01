@@ -218,6 +218,7 @@ struct drm_device {
 	/*@} */
 	int switch_power_state;
 	int doze_state;
+	int pre_state;
 	int doze_brightness;
 };
 

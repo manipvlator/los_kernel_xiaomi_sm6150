@@ -2,6 +2,7 @@
  * Created: Fri Jan  8 09:01:26 1999 by faith@valinux.com
  *
  * Copyright 1999 Precision Insight, Inc., Cedar Park, Texas.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright 2000 VA Linux Systems, Inc., Sunnyvale, California.
  * Copyright (C) 2021 XiaoMi, Inc.
  * All Rights Reserved.
@@ -546,7 +547,7 @@ int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
 		return -EACCES;
 
 	/* MASTER is only for master or control clients */
-	if (unlikely((flags & DRM_MASTER) && 
+	if (unlikely((flags & DRM_MASTER) &&
 		     !drm_is_current_master(file_priv) &&
 		     !drm_is_control_client(file_priv))) {
 		if (!drm_master_filter(task->comm)) {

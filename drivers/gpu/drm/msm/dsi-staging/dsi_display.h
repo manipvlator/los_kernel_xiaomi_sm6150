@@ -690,6 +690,18 @@ int dsi_display_pre_commit(void *display,
 		struct msm_display_conn_params *params);
 
 /**
+ * wp_info_show() - Print white point infomation
+ * @device:         Pointer to device
+ * @attr:           Pointer to device attribute
+ * @buf:            The buffer stored white point infomation
+ *
+ * Return: Type ssize_t
+ */
+ssize_t wp_info_show(struct device *device,
+		struct device_attribute *attr,
+		char *buf);
+
+/**
  * dsi_display_get_dst_format() - get dst_format from DSI display
  * @connector:        Pointer to drm connector structure
  * @display:         Handle to display
@@ -717,7 +729,7 @@ int dsi_display_cont_splash_config(void *display);
 int dsi_display_get_panel_vfp(void *display,
 	int h_active, int v_active);
 
-struct dsi_display *get_main_display(void);
+struct dsi_display *get_primary_display(void);
 
 int dsi_display_cmd_engine_enable(struct dsi_display *display);
 int dsi_display_cmd_engine_disable(struct dsi_display *display);
