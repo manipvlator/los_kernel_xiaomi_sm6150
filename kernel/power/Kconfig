@@ -345,3 +345,16 @@ config BOEFFLA_WL_BLOCKER
 		
 config CPU_PM
 	bool
+
+config WAKELOCK_GOVERNOR
+    bool "Wakelock Governor"
+    depends on PM_WAKELOCKS
+    default y
+    help
+      This enables the wakelock governor which limits maximum wakelock hold time
+      to prevent battery drain from misbehaving applications.
+      
+      The governor provides sysfs interfaces at /sys/kernel/wakelock_governor/
+      for runtime configuration and can be tuned via kernel tuning apps.
+      
+      Say Y if unsure.
