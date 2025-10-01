@@ -100,7 +100,37 @@ static inline unsigned long read_event(struct event_data *event)
 	if (!event->pevent)
 		return 0;
 
-	total = perf_event_read_value(event->pevent, &enabled, &running);
+	if (event->any_cpu_readable) {
+		if (perf_event_read_local(event->pevent, &total, NULL, NULL))
+			return 0;
+	} else {
+		unsigned int ev_cpu = READ_ONCE(event->pevent->oncpu);
+		bool local_read;
+		int ret;
+
+		if (ev_cpu >= nr_cpu_ids)
+			return 0;
+
+		local_irq_disable();
+		if ((local_read = (ev_cpu == raw_smp_processor_id())))
+			ret = perf_event_read_local(event->pevent, &total, NULL, NULL);
+		local_irq_enable();
+
+		if (!local_read) {
+			/*
+			 * Some SCM calls take very long (20+ ms), so the perf
+			 * event IPI could lag on the CPU running the SCM call.
+			 */
+			if (under_scm_call(ev_cpu))
+				return 0;
+
+			total = perf_event_read_value(event->pevent, &enabled,
+						      &running);
+		} else if (ret) {
+			return ret;
+		}
+	}
+
 	ev_count = total - event->prev_count;
 	event->prev_count = total;
 	return ev_count;
