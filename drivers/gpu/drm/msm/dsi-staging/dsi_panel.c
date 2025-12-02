@@ -3892,10 +3892,17 @@ void dsi_panel_gamma_mode_change(struct dsi_panel *panel,
 	if (!count)
 		goto exit;
 
-	if (adj_mode->timing.refresh_rate == 120)
+	switch (adj_mode->timing.refresh_rate) {
+	case 120:
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_BC_120HZ);
-	else if (adj_mode->timing.refresh_rate == 60)
+		break;
+	case 90:
+	case 60:
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_BC_60HZ);
+		break;
+	default:
+		break;
+	}
 
 	if (rc)
 		pr_err("%s: send cmds failed...", __func__);
