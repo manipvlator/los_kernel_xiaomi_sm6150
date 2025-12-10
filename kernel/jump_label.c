@@ -184,6 +184,12 @@ static void __static_key_slow_dec_cpuslocked(struct static_key *key,
 					   unsigned long rate_limit,
 					   struct delayed_work *work)
 {
+	int val;
+
+	val = atomic_add_unless(&key->enabled, -1, 1);
+	if (val == 1)
+		return false;
+
 	/*
 	 * The negative count check is valid even when a negative
 	 * key->enabled is in use by static_key_slow_inc(); a
