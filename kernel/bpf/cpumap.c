@@ -277,7 +277,7 @@ static int cpu_map_kthread_run(void *data)
 				__set_current_state(TASK_RUNNING);
 			}
 		} else {
-			rcu_softirq_qs_periodic(last_qs);
+			cond_resched_rcu_qs();
 			sched = cond_resched();
 		}
 

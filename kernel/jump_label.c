@@ -188,7 +188,7 @@ static void __static_key_slow_dec_cpuslocked(struct static_key *key,
 
 	val = atomic_add_unless(&key->enabled, -1, 1);
 	if (val == 1)
-		return false;
+		return;
 
 	/*
 	 * The negative count check is valid even when a negative

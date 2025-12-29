@@ -574,9 +574,7 @@ static int map_create(union bpf_attr *attr)
 	if (IS_ERR(map))
 		return PTR_ERR(map);
 
-	err = bpf_obj_name_cpy(map->name, attr->map_name);
-	if (err)
-		goto free_map;
+	/* map name not supported on this kernel */
 
 	atomic_set(&map->refcnt, 1);
 	atomic_set(&map->usercnt, 1);

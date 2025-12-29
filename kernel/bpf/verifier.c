@@ -3237,24 +3237,16 @@ static int process_spin_lock(struct bpf_verifier_env *env, int regno,
 		return -EINVAL;
 	}
 	if (!map->btf) {
-		verbose(env,
-			"map '%s' has to have BTF in order to use bpf_spin_lock\n",
-			map->name);
+		verbose(env, "map has to have BTF in order to use bpf_spin_lock\n");
 		return -EINVAL;
 	}
 	if (!map_value_has_spin_lock(map)) {
 		if (map->spin_lock_off == -E2BIG)
-			verbose(env,
-				"map '%s' has more than one 'struct bpf_spin_lock'\n",
-				map->name);
+			verbose(env, "map has more than one 'struct bpf_spin_lock'\n");
 		else if (map->spin_lock_off == -ENOENT)
-			verbose(env,
-				"map '%s' doesn't have 'struct bpf_spin_lock'\n",
-				map->name);
+			verbose(env, "map doesn't have 'struct bpf_spin_lock'\n");
 		else
-			verbose(env,
-				"map '%s' is not a struct type or bpf_spin_lock is mangled\n",
-				map->name);
+			verbose(env, "map is not a struct type or bpf_spin_lock is mangled\n");
 		return -EINVAL;
 	}
 	if (map->spin_lock_off != val + reg->off) {

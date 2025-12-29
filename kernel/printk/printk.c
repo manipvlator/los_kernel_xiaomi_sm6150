@@ -631,7 +631,7 @@ static int log_store(int facility, int level,
 	if (ts_nsec > 0)
 		msg->ts_nsec = ts_nsec;
 	else
-		msg->ts_nsec = local_clock() + get_total_sleep_time_nsec();
+		msg->ts_nsec = local_clock();
 	memset(log_dict(msg) + dict_len, 0, pad_len);
 	msg->len = size;
 
@@ -1224,7 +1224,7 @@ static size_t print_time(u64 ts, char *buf)
 	if (!printk_time)
 		return 0;
 
-	ts += get_total_sleep_time_nsec();
+	/* no sleep time accounting on this kernel */
 	rem_nsec = do_div(ts, 1000000000);
 
 	if (!buf)
@@ -1786,7 +1786,7 @@ static bool cont_add(int facility, int level, enum log_flags flags, const char *
 		cont.facility = facility;
 		cont.level = level;
 		cont.owner = current;
-		cont.ts_nsec = local_clock() + get_total_sleep_time_nsec();
+		cont.ts_nsec = local_clock();
 		cont.flags = flags;
 	}
 
