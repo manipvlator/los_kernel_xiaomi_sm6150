@@ -40,12 +40,19 @@ struct uts_namespace init_uts_ns = {
 };
 EXPORT_SYMBOL_GPL(init_uts_ns);
 
-/* FIXED STRINGS! Don't touch! */
+/* FIXED STRINGS! Don't touch! 
+custom banner by Exotic GANK */
+#ifndef BUILD_DATE
+#define BUILD_DATE "47° Brutalist Oblivion"
+#endif
+
 const char linux_banner[] =
-	"Linux version " UTS_RELEASE " (" LINUX_COMPILE_BY "@"
-	LINUX_COMPILE_HOST ") (" LINUX_COMPILER ") " UTS_VERSION "\n";
+    "Linux version " UTS_RELEASE " (" LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST ")\n"
+    "(Android (MoratX-001, +pgo, +bolt, +lto, +mlgo, based on llvm-project) Clang 19.0.0 (Neutron), LLD 19.0.0)\n"
+    "Crafted in " BUILD_DATE "\n";
 
 const char linux_proc_banner[] =
-	"%s version %s"
-	" (" LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST ")"
-	" (" LINUX_COMPILER ") %s\n";
+    "%s version %s"
+    " (" LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST ") "
+    "(Android (MoratX-001, +pgo, +bolt, +lto, +mlgo, based on llvm-project) Clang 19.0.0 (Neutron), LLD 19.0.0) "
+    "Crafted in " BUILD_DATE "\n";
