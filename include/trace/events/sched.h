@@ -137,53 +137,6 @@ TRACE_EVENT(sched_kthread_work_execute_end,
 );
 
 /*
- * Tracepoint for task enqueue/dequeue:
- */
-TRACE_EVENT(sched_enq_deq_task,
-
-	TP_PROTO(struct task_struct *p, bool enqueue, unsigned int cpus_allowed),
-
-	TP_ARGS(p, enqueue, cpus_allowed),
-
-	TP_STRUCT__entry(
-		__array(	char,	comm,	TASK_COMM_LEN	)
-		__field(	pid_t,	pid			)
-		__field(	int,	prio			)
-		__field(	int,	cpu			)
-		__field(	bool,	enqueue			)
-		__field(unsigned int,	nr_running		)
-		__field(unsigned long,	cpu_load		)
-		__field(unsigned int,	rt_nr_running		)
-		__field(unsigned int,	cpus_allowed		)
-		__field(unsigned int,	demand			)
-		__field(unsigned int,	pred_demand		)
-	),
-
-	TP_fast_assign(
-		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
-		__entry->pid		= p->pid;
-		__entry->prio		= p->prio;
-		__entry->cpu		= task_cpu(p);
-		__entry->enqueue	= enqueue;
-		__entry->nr_running	= task_rq(p)->nr_running;
-		__entry->cpu_load	= task_rq(p)->cpu_load[0];
-		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
-		__entry->cpus_allowed	= cpus_allowed;
-		__entry->demand		= task_load(p);
-		__entry->pred_demand	= task_pl(p);
-	),
-
-	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u affine=%x demand=%u pred_demand=%u",
-			__entry->cpu,
-			__entry->enqueue ? "enqueue" : "dequeue",
-			__entry->comm, __entry->pid,
-			__entry->prio, __entry->nr_running,
-			__entry->cpu_load, __entry->rt_nr_running, __entry->cpus_allowed
-			, __entry->demand, __entry->pred_demand
-			)
-);
-
-/*
  * Tracepoint for waking up a task:
  */
 DECLARE_EVENT_CLASS(sched_wakeup_template,
@@ -1684,6 +1637,35 @@ TRACE_EVENT(sched_preempt_disable,
 				__entry->delta, __entry->irqs_disabled,
 				__entry->caddr0, __entry->caddr1,
 				__entry->caddr2, __entry->caddr3)
+);
+
+TRACE_EVENT(sched_enq_deq_task,
+
+	TP_PROTO(struct task_struct *p, int enqueue, unsigned int cpumask),
+
+	TP_ARGS(p, enqueue, cpumask),
+
+	TP_STRUCT__entry(
+		__array(	char,	comm,	TASK_COMM_LEN	)
+		__field(	pid_t,	pid			)
+		__field(	int,	priority		)
+		__field(	int,	cpu			)
+		__field(	int,	enqueue			)
+		__field(	unsigned int,	cpumask		)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid		= p->pid;
+		__entry->priority	= p->prio;
+		__entry->cpu		= task_cpu(p);
+		__entry->enqueue	= enqueue;
+		__entry->cpumask	= cpumask;
+	),
+
+	TP_printk("cpu=%d pid=%d comm=%s prio=%d enqueue=%d cpumask=0x%x",
+		__entry->cpu, __entry->pid, __entry->comm, __entry->priority,
+		__entry->enqueue, __entry->cpumask)
 );
 
 #endif /* _TRACE_SCHED_H */
