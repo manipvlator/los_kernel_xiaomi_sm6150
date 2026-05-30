@@ -1,0 +1,113 @@
+name: Start Reforge
+
+on:
+  workflow_dispatch:
+
+jobs:
+  Reforging:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type:
+          - KSU
+          - KSU-OEM
+          - Non-KSU
+
+    steps:
+    - name: 🔄 Checkout Code
+      uses: actions/checkout@v5
+
+    - name: ⏰ Prepare timezone
+      run: |
+        sudo rm /etc/localtime
+        sudo ln -s /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+
+    - name: 📦 Install Dependencies
+      run: |
+        sudo apt update -y
+        sudo apt install bc cpio flex bison aptitude git python-is-python3 tar aria2 perl wget curl lz4 libssl-dev -y
+
+    - name: 🔧 Clone Toolchains
+      run: |
+        mkdir -p clang && cd clang
+        wget https://github.com/ZyCromerZ/Clang/releases/download/17.0.0-20230725-release/Clang-17.0.0-20230725.tar.gz
+        tar -xzf Clang-17.0.0-20230725.tar.gz
+        rm Clang-17.0.0-20230725.tar.gz
+        cd ..
+        git clone https://github.com/greenforce-project/gcc-arm64 -b main --depth=1 gcc64
+        git clone https://github.com/greenforce-project/gcc-arm -b main --depth=1 gcc32
+
+    - name: ⚙️ Setup Environment
+      run: |
+        echo "BUILD_TIME=$(TZ=Asia/Jakarta date '+%d%m%Y-%H%M')" >> $GITHUB_ENV
+        echo "CLANG_PATH=$GITHUB_WORKSPACE/clang" >> $GITHUB_ENV
+        echo "GCC64_PATH=$GITHUB_WORKSPACE/gcc64" >> $GITHUB_ENV
+        echo "GCC32_PATH=$GITHUB_WORKSPACE/gcc32" >> $GITHUB_ENV
+
+    - name: 📅 Set BUILD DATE
+      run: |
+        echo "BUILD_DATE='\"$(TZ=Asia/Jakarta date '+%b %d %Y')\"'" >> $GITHUB_ENV
+
+    - name: 🥷 Implant NoMount
+      run: curl https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh | bash -
+
+    - name: 📥 Setup KernelSU-Next
+      if: ${{ matrix.build_type == 'KSU' || matrix.build_type == 'KSU-OEM' }}
+      run: |
+        curl -LSs "https://raw.githubusercontent.com/manipvlator/KernelSU-Next/stable/kernel/setup.sh" | bash -s syscall
+
+    - name: 📐 OEM Dimension
+      if: ${{ matrix.build_type == 'KSU-OEM' }}
+      run: |
+        sed -i 's/qcom,mdss-pan-physical-width-dimension = <69>;$/qcom,mdss-pan-physical-width-dimension = <695>;/' arch/arm64/boot/dts/qcom/xiaomi/sweet/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
+        sed -i 's/qcom,mdss-pan-physical-height-dimension = <154>;$/qcom,mdss-pan-physical-height-dimension = <1546>;/' arch/arm64/boot/dts/qcom/xiaomi/sweet/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
+
+    - name: 🛠️ Build Kernel
+      run: |
+        export ARCH=arm64
+        export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
+        export KBUILD_BUILD_USER=Manipulator
+        export KBUILD_BUILD_HOST=LineageOS
+        export KBUILD_COMPILER_STRING="$CLANG_PATH/clang"
+        export BUILD_DATE=$BUILD_DATE
+        export CFLAGS_EXTRA="-DBUILD_DATE=$BUILD_DATE"
+        make O=out ARCH=arm64 vendor/sweet_defconfig
+        make -j$(nproc --all) \
+          O=out \
+          ARCH=arm64 \
+          LLVM=1 \
+          LLVM_IAS=1 \
+          CC=clang \
+          CLANG_TRIPLE=$CLANG_PATH/aarch64-linux-gnu- \
+          CROSS_COMPILE=$GCC64_PATH/bin/aarch64-elf- \
+          CROSS_COMPILE_ARM32=$GCC32_PATH/bin/arm-eabi-
+        mv out/.config out/sweet_defconfig.txt
+
+    - name: 💾 Upload Config
+      uses: actions/upload-artifact@v5
+      with:
+        name: configs-${{ matrix.build_type }}-${{ env.BUILD_TIME }}
+        path: out/sweet_defconfig.txt
+
+    - name: 📂 Clone AnyKernel3 & Prepare ZIP
+      run: |
+        git clone --depth=1 \
+          https://github.com/manipvlator/Anykernel3.git \
+          -b reforge \
+          AnyKernel3
+
+        cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
+        cp out/arch/arm64/boot/dtbo.img AnyKernel3/dtbo.img
+        cp out/arch/arm64/boot/dtb.img AnyKernel3/dtb.img
+        cd AnyKernel3
+        zip -r \
+          "../Reforge_${{ matrix.build_type }}-${{ github.ref_name }}-${BUILD_TIME}.zip" \
+          *
+
+    - name: 📤 Upload Flashable ZIP
+      uses: actions/upload-artifact@v5
+      with:
+        name: Reforge_${{ matrix.build_type }}-${{ github.ref_name }}-${{ env.BUILD_TIME }}
+        path: AnyKernel3/*
