@@ -1,0 +1,88 @@
+name: Reforging
+
+on:
+  workflow_dispatch:
+
+jobs:
+  Reforging:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [KSU-AOSP, KSU-OEM, Non-KSU]
+
+    steps:
+      - name: 🔄 Checkout Code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: ⏰ Prepare Environment
+        run: |
+          sudo ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+          sudo apt update -y
+          sudo apt install -y bc cpio flex bison git python-is-python3 tar aria2 perl wget curl lz4 libssl-dev
+
+          mkdir -p clang && cd clang
+          wget https://github.com/ZyCromerZ/Clang/releases/download/17.0.0-20230725-release/Clang-17.0.0-20230725.tar.gz
+          tar -xzf Clang-17.0.0-20230725.tar.gz
+          rm Clang-17.0.0-20230725.tar.gz
+
+          git clone --depth=1 -b main https://github.com/greenforce-project/gcc-arm64 gcc64
+          git clone --depth=1 -b main https://github.com/greenforce-project/gcc-arm gcc32
+
+          echo "BUILD_TIME=$(TZ=Asia/Jakarta date '+%d%m%Y-%H%M')" >> "$GITHUB_ENV"
+          echo "BUILD_DATE=\"$(TZ=Asia/Jakarta date '+%b %d %Y')\"" >> "$GITHUB_ENV"
+          echo "CLANG_PATH=$GITHUB_WORKSPACE/clang" >> "$GITHUB_ENV"
+          echo "GCC64_PATH=$GITHUB_WORKSPACE/gcc64" >> "$GITHUB_ENV"
+          echo "GCC32_PATH=$GITHUB_WORKSPACE/gcc32" >> "$GITHUB_ENV"
+
+      - name: 🥷 Setup NoMount
+        run: curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh | bash -
+
+      - name: 📥 Setup KernelSU
+        if: matrix.build_type == 'KSU-AOSP' || matrix.build_type == 'KSU-OEM'
+        run: curl -LSs https://raw.githubusercontent.com/manipvlator/KernelSU/refs/heads/main/kernel/setup.sh | bash -s main
+
+      - name: 🧰 OEM Setup
+        if: matrix.build_type == 'KSU-OEM'
+        run: |
+          DTS=arch/arm64/boot/dts/qcom/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
+          sed -i \
+            -e 's/qcom,mdss-pan-physical-width-dimension = <69>;/qcom,mdss-pan-physical-width-dimension = <695>;/' \
+            -e 's/qcom,mdss-pan-physical-height-dimension = <154>;/qcom,mdss-pan-physical-height-dimension = <1546>;/' \
+            "$DTS"
+
+      - name: 🛠️ Build Kernel
+        run: |
+          export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
+          export KBUILD_BUILD_USER=Manipulator
+          export KBUILD_BUILD_HOST=ExoticGANK
+          export KBUILD_COMPILER_STRING="$CLANG_PATH/bin/clang"
+          export CFLAGS_EXTRA="-DBUILD_DATE=$BUILD_DATE"
+
+          make O=out ARCH=arm64 vendor/sweet_defconfig
+          make -j"$(nproc --all)" O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE="$GCC64_PATH/bin/aarch64-elf-" \
+            CROSS_COMPILE_ARM32="$GCC32_PATH/bin/arm-eabi-"
+
+          mv out/.config out/sweet_defconfig.txt
+
+      - name: 💾 Upload Config
+        uses: actions/upload-artifact@v7
+        with:
+          name: configs-${{ matrix.build_type }}-${{ env.BUILD_TIME }}
+          path: out/sweet_defconfig.txt
+
+      - name: 📂 Prepare AnyKernel3
+        run: |
+          git clone --depth=1 -b strix https://github.com/manipvlator/Anykernel3.git AnyKernel3
+          cp out/arch/arm64/boot/{Image.gz,dtbo.img,dtb.img} AnyKernel3/
+          (cd AnyKernel3 && zip -r "../StriXotic-Limited_${{ matrix.build_type }}-${{ github.ref_name }}-${BUILD_TIME}.zip" . -x ".git/*")
+
+      - name: 📤 Upload Flashable ZIP
+        uses: actions/upload-artifact@v7
+        with:
+          name: StriXotic-Limited_${{ matrix.build_type }}-${{ github.ref_name }}-${{ env.BUILD_TIME }}
+          path: AnyKernel3/*
