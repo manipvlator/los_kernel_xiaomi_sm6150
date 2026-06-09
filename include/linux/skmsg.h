@@ -38,6 +38,9 @@ struct sk_msg_sg {
 	 */
 	struct scatterlist		data[MAX_MSG_FRAGS + 2];
 };
+#ifndef static_assert
+#define static_assert(expr, ...) _Static_assert(expr, "" #__VA_ARGS__)
+#endif
 static_assert(BITS_PER_LONG >= NR_MSG_FRAG_IDS);
 
 /* UAPI in filter.c depends on struct sk_msg_sg being first element. */
