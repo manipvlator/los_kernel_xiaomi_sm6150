@@ -315,7 +315,7 @@ static int cpu_map_kthread_run(void *data)
 				__set_current_state(TASK_RUNNING);
 			}
 		} else {
-			cond_resched_rcu_qs();
+			cond_resched_rcu();
 			sched = cond_resched();
 		}
 

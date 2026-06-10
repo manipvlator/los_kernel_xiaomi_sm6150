@@ -313,5 +313,5 @@ static inline void tlb_remove_check_page_size_change(struct mmu_gather *tlb,
 #endif
 
 #define tlb_migrate_finish(mm) ((void)0)
-
+#endif /* CONFIG_MMU */
 #endif /* _ASM_GENERIC__TLB_H */
