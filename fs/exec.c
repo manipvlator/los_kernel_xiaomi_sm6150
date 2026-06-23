@@ -1736,7 +1736,6 @@ static int __do_execve_file(int fd, struct filename *filename,
 
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
-
 	/*
 	 * We move the actual failure in case of RLIMIT_NPROC excess from
 	 * set*uid() to execve() because too many poorly written programs
@@ -1919,6 +1918,7 @@ int do_execve(struct filename *filename,
 {
 	struct user_arg_ptr argv = { .ptr.native = __argv };
 	struct user_arg_ptr envp = { .ptr.native = __envp };
+
 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
 }
 
@@ -1946,6 +1946,7 @@ static int compat_do_execve(struct filename *filename,
 		.is_compat = true,
 		.ptr.compat = __envp,
 	};
+
 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
 }
 
