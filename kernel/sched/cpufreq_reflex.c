@@ -303,13 +303,12 @@ static unsigned int rfx_get_next_freq(struct rfx_policy *rfx_pol,
 static void rfx_get_util(struct rfx_cpu *rfx_c, unsigned long boost)
 {
 	struct rq *rq = cpu_rq(rfx_c->cpu);
-	unsigned long util = cpu_util_cfs(rq);
+	sched_avg_update(rq);
+	unsigned long util = boosted_cpu_util(rfx_c->cpu, NULL);
 	unsigned long max_cap = arch_scale_cpu_capacity(NULL, rfx_c->cpu);
-
-	rfx_c->bw_min = cpu_bw_dl(rq);
-	rfx_c->util   = schedutil_cpu_util(rfx_c->cpu, util, max_cap,
-					   FREQUENCY_UTIL, NULL);
-	rfx_c->util   = max(rfx_c->util, boost);
+	
+	rfx_c->bw_min = 0;
+	rfx_c->util = max(util, boost);
 }
 
 /************************ Hispeed (idle-time accounting) ***********************/
@@ -543,7 +542,7 @@ static inline bool rfx_hold_freq(struct rfx_cpu *rfx_c) { return false; }
 
 static inline void rfx_ignore_dl_rate_limit(struct rfx_cpu *rfx_c)
 {
-	if (cpu_bw_dl(cpu_rq(rfx_c->cpu)) > rfx_c->bw_min)
+	if (0 > rfx_c->bw_min)
 		rfx_c->rfx_policy->need_freq_update = true;
 }
 
