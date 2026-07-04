@@ -228,7 +228,7 @@ static bool rfx_should_update_freq(struct rfx_policy *rfx_pol, u64 time)
 {
 	s64 delta_ns;
 
-	if (!cpufreq_this_cpu_can_update(rfx_pol->policy))
+	if (cpumask_first(rfx_pol->policy->cpus) != smp_processor_id())
 		return false;
 
 	if (unlikely(READ_ONCE(rfx_pol->limits_changed))) {
@@ -250,8 +250,7 @@ static bool rfx_update_next_freq(struct rfx_policy *rfx_pol, u64 time,
 {
 	if (rfx_pol->need_freq_update) {
 		rfx_pol->need_freq_update = false;
-		if (rfx_pol->next_freq == next_freq &&
-		    !cpufreq_driver_test_flags(CPUFREQ_NEED_UPDATE_LIMITS))
+		if (rfx_pol->limits_changed)
 			return false;
 	} else if (rfx_pol->next_freq == next_freq) {
 		return false;
@@ -775,7 +774,7 @@ static void rfx_tunables_free(struct kobject *kobj)
 }
 
 static struct kobj_type rfx_tunables_ktype = {
-	.default_groups = rfx_groups,
+	.default_attrs = rfx_attrs,
 	.sysfs_ops = &governor_sysfs_ops,
 	.release = &rfx_tunables_free,
 };
@@ -808,7 +807,7 @@ static int rfx_kthread_create(struct rfx_policy *rfx_pol)
 	struct sched_attr attr = {
 		.size		= sizeof(struct sched_attr),
 		.sched_policy	= SCHED_DEADLINE,
-		.sched_flags	= SCHED_FLAG_SUGOV,
+		.sched_flags = 0,
 		.sched_nice	= 0,
 		.sched_priority	= 0,
 		/*
