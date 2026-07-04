@@ -271,6 +271,13 @@ static void rfx_deferred_update(struct rfx_policy *rfx_pol)
 	}
 }
 
+static inline unsigned int map_util_freq(unsigned long util,
+                                         unsigned int freq,
+                                         unsigned long max)
+{
+        return (freq + (freq >> 2)) * util / max;
+}
+
 static unsigned int rfx_get_next_freq(struct rfx_policy *rfx_pol,
 				      unsigned long util, unsigned long max)
 {
@@ -298,7 +305,7 @@ static void rfx_get_util(struct rfx_cpu *rfx_c, unsigned long boost)
 {
 	struct rq *rq = cpu_rq(rfx_c->cpu);
 	unsigned long util = cpu_util_cfs(rq);
-	unsigned long max_cap = arch_scale_cpu_capacity(rfx_c->cpu);
+	unsigned long max_cap = arch_scale_cpu_capacity(NULL, rfx_c->cpu);
 
 	rfx_c->bw_min = cpu_bw_dl(rq);
 	rfx_c->util   = schedutil_cpu_util(rfx_c->cpu, util, max_cap,
@@ -553,7 +560,7 @@ static void rfx_update_single_freq(struct update_util_data *hook, u64 time,
 	unsigned long max_cap, boost, effective_util;
 	unsigned int next_f;
 
-	max_cap = arch_scale_cpu_capacity(rfx_c->cpu);
+	max_cap = arch_scale_cpu_capacity(NULL, rfx_c->cpu);
 
 	rfx_iowait_boost(rfx_c, time, flags);
 	rfx_c->last_update = time;
@@ -604,7 +611,7 @@ static unsigned int rfx_next_freq_shared(struct rfx_cpu *rfx_c, u64 time)
 	unsigned long util = 0, max_cap;
 	unsigned int next_f, j;
 
-	max_cap = arch_scale_cpu_capacity(rfx_c->cpu);
+	max_cap = arch_scale_cpu_capacity(NULL, rfx_c->cpu);
 
 	for_each_cpu(j, policy->cpus) {
 		struct rfx_cpu *j_rfx_c = &per_cpu(rfx_cpu, j);
@@ -995,8 +1002,7 @@ static int rfx_start(struct cpufreq_policy *policy)
 	rfx_pol->limits_changed		= false;
 	rfx_pol->cached_raw_freq	= 0;
 
-	rfx_pol->need_freq_update =
-		cpufreq_driver_test_flags(CPUFREQ_NEED_UPDATE_LIMITS);
+	rfx_pol->need_freq_update = false;
 
 	for_each_cpu(cpu, policy->cpus) {
 		struct rfx_cpu *rfx_c = &per_cpu(rfx_cpu, cpu);
@@ -1049,7 +1055,6 @@ static void rfx_limits(struct cpufreq_policy *policy)
 static struct cpufreq_governor reflex_gov = {
 	.name			= "reflex",
 	.owner			= THIS_MODULE,
-	.flags			= CPUFREQ_GOV_DYNAMIC_SWITCHING,
 	.init			= rfx_init,
 	.exit			= rfx_exit,
 	.start			= rfx_start,
