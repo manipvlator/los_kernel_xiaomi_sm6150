@@ -228,17 +228,25 @@ static inline u64 scale_slice(u64 delta, struct sched_entity *se) {
 	return mul_u64_u32_shr(delta, sched_prio_to_wmult[se->burst_score], 22);
 }
 
-static void update_burst_score(struct sched_entity *se) {
-	if (!entity_is_task(se)) return;
-	struct task_struct *p = task_of(se);
-	u8 prio = p->static_prio - MAX_RT_PRIO;
-	u8 prev_prio = min(39, prio + se->burst_score);
+static void update_burst_score(struct sched_entity *se)
+{
+	struct task_struct *p;
+	u8 prio;
+	u8 prev_prio;
+	u8 new_prio;
+
+	if (!entity_is_task(se))
+		return;
+
+	p = task_of(se);
+	prio = p->static_prio - MAX_RT_PRIO;
+	prev_prio = min(39, prio + se->burst_score);
 
 	se->burst_score = se->burst_penalty >> 2;
 
-	u8 new_prio = min(39, prio + se->burst_score);
+	new_prio = min(39, prio + se->burst_score);
 	if (new_prio != prev_prio)
-	 	reweight_task(p, new_prio);
+		reweight_task(p, new_prio);
 }
 
 static void update_burst_penalty(struct sched_entity *se) {
@@ -5421,11 +5429,14 @@ static inline void update_overutilized_status(struct rq *rq)
 static void
 enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 {
-	struct cfs_rq *cfs_rq;
-	struct sched_entity *se = &p->se;
-	int task_new = !(flags & ENQUEUE_WAKEUP);
-	bool prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
-				(schedtune_prefer_idle(p) > 0) : 0;
+        struct cfs_rq *cfs_rq;
+        struct sched_entity *se = &p->se;
+        int task_new = !(flags & ENQUEUE_WAKEUP);
+        bool prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
+                                (schedtune_prefer_idle(p) > 0) : 0;
+#ifdef CONFIG_SCHED_BORE
+        int task_sleep;
+#endif
 
 #ifdef CONFIG_SCHED_WALT
 	p->misfit = !task_fits_max(p, rq->cpu);
@@ -5465,9 +5476,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		cpufreq_update_util(rq, SCHED_CPUFREQ_IOWAIT);
 
 #ifdef CONFIG_SCHED_BORE
-	int task_sleep = flags & DEQUEUE_SLEEP;
-	
-	if (task_sleep) {
+        task_sleep = flags & DEQUEUE_SLEEP;
+
+        if (task_sleep) {
 		cfs_rq = cfs_rq_of(se);
 		if (cfs_rq->curr == se)
 			update_curr(cfs_rq);
@@ -5535,7 +5546,9 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &p->se;
-	int task_sleep = flags & DEQUEUE_SLEEP;
+	int task_sleep;
+
+	task_sleep = flags & DEQUEUE_SLEEP;
 
 	/*
 	 * The code below (indirectly) updates schedutil which looks at

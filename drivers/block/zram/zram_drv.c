@@ -1350,7 +1350,6 @@ static int __zram_bvec_write(struct zram *zram, struct bio_vec *bvec,
 	void *src, *dst, *mem;
 	struct zcomp_strm *zstrm;
 	struct page *page = bvec->bv_page;
-	u64 checksum;
 	unsigned long element = 0;
 	enum zram_pageflags flags = 0;
 
