@@ -302,13 +302,15 @@ static unsigned int rfx_get_next_freq(struct rfx_policy *rfx_pol,
  */
 static void rfx_get_util(struct rfx_cpu *rfx_c, unsigned long boost)
 {
-	struct rq *rq = cpu_rq(rfx_c->cpu);
-	sched_avg_update(rq);
-	unsigned long util = boosted_cpu_util(rfx_c->cpu, NULL);
-	unsigned long max_cap = arch_scale_cpu_capacity(NULL, rfx_c->cpu);
-	
-	rfx_c->bw_min = 0;
-	rfx_c->util = max(util, boost);
+        struct rq *rq = cpu_rq(rfx_c->cpu);
+        unsigned long util;
+
+        sched_avg_update(rq);
+
+        util = boosted_cpu_util(rfx_c->cpu, NULL);
+
+        rfx_c->bw_min = 0;
+        rfx_c->util = max(util, boost);
 }
 
 /************************ Hispeed (idle-time accounting) ***********************/
@@ -763,7 +765,6 @@ static struct attribute *rfx_attrs[] = {
 	&hispeed_filter_shift.attr,
 	NULL
 };
-ATTRIBUTE_GROUPS(rfx);
 
 static void rfx_tunables_free(struct kobject *kobj)
 {
