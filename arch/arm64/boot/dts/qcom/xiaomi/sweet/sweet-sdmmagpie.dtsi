@@ -1020,4 +1020,11 @@ And public attribution of xiaomi platforms(like F3 and so and)
 	vccq2-voltage-level = <1800000 1950000>;
 	spm-level = <3>;
 	rpm-level = <3>;
+	devfreq-min-freq = <200000000>;
+	devfreq-governor = "sched";
+	qcom,limit-devfreq-on-cpu-scaling;
+	qcom,enable-hs-gear-down;
+	qcom,ufs-idle-timeout = <600>;
+	qcom,ufs-clk-gating-delay-ms = <50>;
+	qcom,disable-lpm-during-suspend = <0>;
 };
