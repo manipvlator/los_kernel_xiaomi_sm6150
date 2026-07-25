@@ -87,7 +87,7 @@ config CFQ_GROUP_IOSCHED
 choice
 
 	prompt "Default I/O scheduler"
-	default DEFAULT_CFQ
+	default DEFAULT_MAPLE
 	help
 	  Select the I/O scheduler which will be used by default for all
 	  block devices.
@@ -115,6 +115,9 @@ choice
   
   	config DEFAULT_SIO
   		bool "SIO" if IOSCHED_SIO=y
+  	
+  	config DEFAULT_KYBER
+		bool "Kyber" if MQ_IOSCHED_KYBER=y
 
 	config DEFAULT_NOOP
 		bool "No-op"
@@ -131,6 +134,8 @@ config DEFAULT_IOSCHED
  	default "tripndroid" if DEFAULT_TRIPNDROID
  	default "fiops" if DEFAULT_FIOPS
   	default "sio" if DEFAULT_SIO
+  	default "bfq" if DEFAULT_BFQ
+  	default "kyber" if DEFAULT_KYBER
 	default "noop" if DEFAULT_NOOP
 
 config MQ_IOSCHED_DEADLINE
