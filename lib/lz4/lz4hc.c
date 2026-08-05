@@ -2318,14 +2318,12 @@ static int LZ4HC_compress_optimal(LZ4HC_CCtx_internal *ctx,
 {
 	int retval = 0;
 #define TRAILING_LITERALS 3
-#if defined(LZ4HC_HEAPMODE) && LZ4HC_HEAPMODE == 1
-	LZ4HC_optimal_t *const opt = (LZ4HC_optimal_t *)ALLOC(
-		sizeof(LZ4HC_optimal_t) * (LZ4_OPT_NUM + TRAILING_LITERALS));
-#else
-	LZ4HC_optimal_t
-		opt[LZ4_OPT_NUM +
-		    TRAILING_LITERALS]; /* ~64 KB, which is a bit large for stack... */
-#endif
+
+	/*
+	 * Move the ~64KB array to a pointer for heap allocation
+	 * to prevent stack overflow in kernel space.
+	 */
+	LZ4HC_optimal_t *opt = NULL;
 
 	const BYTE *ip = (const BYTE *)source;
 	const BYTE *anchor = ip;
@@ -2338,11 +2336,14 @@ static int LZ4HC_compress_optimal(LZ4HC_CCtx_internal *ctx,
 	int ovml = MINMATCH; /* overflow - last sequence */
 	int ovoff = 0;
 
-	/* init */
-#if defined(LZ4HC_HEAPMODE) && LZ4HC_HEAPMODE == 1
-	if (opt == NULL)
+	/*
+	 * Use kvmalloc for huge memory allocation in kernel space.
+	 */
+	opt = kvmalloc(sizeof(LZ4HC_optimal_t) * (LZ4_OPT_NUM + TRAILING_LITERALS),
+		       GFP_KERNEL);
+	if (!opt)
 		goto _return_label;
-#endif
+
 	DEBUGLOG(5, "LZ4HC_compress_optimal(dst=%p, dstCapa=%u)", dst,
 		 (unsigned)dstCapacity);
 	*srcSizePtr = 0;
@@ -2731,10 +2732,9 @@ _dest_overflow:
 		goto _last_literals;
 	}
 _return_label:
-#if defined(LZ4HC_HEAPMODE) && LZ4HC_HEAPMODE == 1
+	/* Free the allocated heap memory */
 	if (opt)
-		FREEMEM(opt);
-#endif
+		kvfree(opt);
 	return retval;
 }
 
