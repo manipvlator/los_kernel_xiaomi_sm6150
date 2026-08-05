@@ -114,6 +114,8 @@
 #define LZ4_STATIC_LINKING_ONLY
 #endif
 #include "lz4.h"
+#include <linux/slab.h>
+#include <linux/mm.h>
 /* see also "memory routines" below */
 
 /*-************************************
@@ -1711,25 +1713,25 @@ int LZ4_compress_fast_extState_fastReset(void *state, const char *src,
 	}
 }
 
-int LZ4_compress_fast(const char *src, char *dest, int srcSize, int dstCapacity,
-		      int acceleration)
+int LZ4_compress_fast(const char *src, char *dest, int srcSize,
+		      int dstCapacity, int acceleration)
 {
+	LZ4_stream_t *ctxPtr;
 	int result;
-#if (LZ4_HEAPMODE)
-	LZ4_stream_t *const ctxPtr = (LZ4_stream_t *)ALLOC(sizeof(
-		LZ4_stream_t)); /* malloc-calloc always properly aligned */
-	if (ctxPtr == NULL)
+
+	/*
+	 * Allocate 16KB on the heap using kvmalloc to prevent
+	 * kernel stack overflow.
+	 */
+	ctxPtr = kvmalloc(sizeof(*ctxPtr), GFP_KERNEL);
+	if (!ctxPtr)
 		return 0;
-#else
-	LZ4_stream_t ctx;
-	LZ4_stream_t *const ctxPtr = &ctx;
-#endif
+
 	result = LZ4_compress_fast_extState(ctxPtr, src, dest, srcSize,
 					    dstCapacity, acceleration);
 
-#if (LZ4_HEAPMODE)
-	FREEMEM(ctxPtr);
-#endif
+	kvfree(ctxPtr);
+
 	return result;
 }
 
@@ -1797,22 +1799,20 @@ int LZ4_compress_destSize_extState(void *state, const char *src, char *dst,
 int LZ4_compress_destSize(const char *src, char *dst, int *srcSizePtr,
 			  int targetDstSize)
 {
-#if (LZ4_HEAPMODE)
-	LZ4_stream_t *const ctx = (LZ4_stream_t *)ALLOC(sizeof(
-		LZ4_stream_t)); /* malloc-calloc always properly aligned */
-	if (ctx == NULL)
+	LZ4_stream_t *ctx;
+	int result;
+
+	/* Allocate 16KB on the heap to prevent stack overflow */
+	ctx = kvmalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
 		return 0;
-#else
-	LZ4_stream_t ctxBody;
-	LZ4_stream_t *const ctx = &ctxBody;
-#endif
 
-	int result = LZ4_compress_destSize_extState_internal(
-		ctx, src, dst, srcSizePtr, targetDstSize, 1);
+	result = LZ4_compress_destSize_extState_internal(ctx, src, dst,
+							 srcSizePtr,
+							 targetDstSize, 1);
 
-#if (LZ4_HEAPMODE)
-	FREEMEM(ctx);
-#endif
+	kvfree(ctx);
+
 	return result;
 }
 
