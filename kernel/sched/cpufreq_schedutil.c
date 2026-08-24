@@ -1135,3 +1135,23 @@ static int __init sugov_register(void)
 	return cpufreq_register_governor(&schedutil_gov);
 }
 fs_initcall(sugov_register);
+
+void rfx_get_util_gki510(int cpu, unsigned long boost,
+			 unsigned long *out_util, unsigned long *out_bw_min)
+{
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long util;
+
+	sched_avg_update(rq);
+	util = max(boosted_cpu_util(cpu, NULL), boost);
+	*out_bw_min = 0;
+	*out_util = min(util + (util >> 2),
+			(unsigned long)arch_scale_cpu_capacity(NULL, cpu));
+}
+EXPORT_SYMBOL_GPL(rfx_get_util_gki510);
+
+bool rfx_dl_bw_exceeded_gki510(int cpu, unsigned long bw_min)
+{
+	return false;
+}
+EXPORT_SYMBOL_GPL(rfx_dl_bw_exceeded_gki510);

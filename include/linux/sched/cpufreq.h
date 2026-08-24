@@ -29,6 +29,10 @@ void cpufreq_add_update_util_hook(int cpu, struct update_util_data *data,
                        void (*func)(struct update_util_data *data, u64 time,
 				    unsigned int flags));
 void cpufreq_remove_update_util_hook(int cpu);
+/* Vorpal CPUFreq governor helpers adapted for the 4.14 scheduler. */
+void rfx_get_util_gki510(int cpu, unsigned long boost,
+			 unsigned long *out_util, unsigned long *out_bw_min);
+bool rfx_dl_bw_exceeded_gki510(int cpu, unsigned long bw_min);
 #endif /* CONFIG_CPU_FREQ */
 
 #endif /* _LINUX_SCHED_CPUFREQ_H */

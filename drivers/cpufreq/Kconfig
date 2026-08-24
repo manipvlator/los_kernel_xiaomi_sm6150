@@ -298,6 +298,17 @@ config CPU_FREQ_GOV_INTERACTIVE
 
 	  If in doubt, say N.
 
+config CPU_FREQ_GOV_VORPAL
+	tristate "'vorpal' cpufreq policy governor"
+	default m
+	depends on CPU_FREQ && SMP && CPU_FREQ_GOV_SCHEDUTIL
+	select CPU_FREQ_GOV_ATTR_SET
+	select IRQ_WORK
+	help
+	 Vorpal CPUFreq Governor, adapted for Linux 4.14
+	 Combines interactive hispeed ramp-up with PELT tracking.
+	 Module: cpufreq_vorpal. If in doubt, say M.
+
 comment "CPU frequency scaling drivers"
 
 config CPUFREQ_DT
