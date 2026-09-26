@@ -288,7 +288,7 @@ jobs:
 
       - name: 🔨 Build Kernel
         run: |
-          CLANG="$HOME/toolchains/ZyC-clang"
+          CLANG="$GITHUB_WORKSPACE/clang"
           GCC64="${GITHUB_WORKSPACE}/gcc64"
           GCC32="${GITHUB_WORKSPACE}/gcc32"
           export PATH="$CLANG/bin:$GCC64/bin:$GCC32/bin:$PATH"
