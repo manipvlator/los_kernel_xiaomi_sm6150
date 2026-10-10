@@ -257,19 +257,11 @@ jobs:
           chmod 600 ~/.ssh/sourceforge_actions
           ssh-keyscan -H frs.sourceforge.net >> ~/.ssh/known_hosts
 
-      - name: ⚙️ Setup Neutron Clang
+      - name: ⚙️ Setup Alchemist-LLVM
         run: |
-          mkdir -p "$HOME/toolchains/neutron-clang"
-          cd "$HOME/toolchains/neutron-clang"
-          curl -LO https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman
-          chmod +x antman
-          ./antman -S
-          ./antman --patch=glibc
-
-      - name: ⚙️ Setup GCC
-        run: |
-          git clone --depth=1 --branch main https://github.com/greenforce-project/gcc-arm64 gcc64
-          git clone --depth=1 --branch main https://github.com/greenforce-project/gcc-arm gcc32
+          git clone --depth=1 --single-branch \
+            -b clang-22-LTO \
+            https://gitlab.com/nekoshirro/Alchemist-LLVM.git clang
 
       - name: 🔐 Setup KernelSU + NoMount
         if: matrix.build_type == 'KSU-AOSP' || matrix.build_type == 'KSU-OEM'
@@ -290,19 +282,16 @@ jobs:
 
       - name: 🔨 Build Kernel
         run: |
-          CLANG="$HOME/toolchains/neutron-clang"
-          GCC64="${GITHUB_WORKSPACE}/gcc64"
-          GCC32="${GITHUB_WORKSPACE}/gcc32"
-          export PATH="$CLANG/bin:$GCC64/bin:$GCC32/bin:$PATH"
+          CLANG="$GITHUB_WORKSPACE/clang"
+          export PATH="$CLANG/bin:$PATH"
           export CFLAGS_EXTRA="-DBUILD_DATE=$(date +%s)"
 
           make -j"$(nproc --all)" O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang \
-            CLANG_TRIPLE="$CLANG/aarch64-linux-gnu-" \
-            CROSS_COMPILE="$GCC64/bin/aarch64-elf-" \
-            CROSS_COMPILE_ARM32="$GCC32/bin/arm-eabi-" \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             KBUILD_BUILD_USER="$KBUILD_BUILD_USER" \
             KBUILD_BUILD_HOST="$KBUILD_BUILD_HOST" \
-            KBUILD_COMPILER_STRING="Neutron clang version 24.0.0"
+            KBUILD_COMPILER_STRING="Alchemist LLVM Project"
 
       - name: 📄 Save Defconfig
         run: cp out/.config out/sweet_defconfig.txt

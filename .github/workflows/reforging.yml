@@ -21,22 +21,13 @@ jobs:
           sudo apt update -y
           sudo apt install -y bc cpio flex bison git python-is-python3 tar aria2 perl wget curl lz4 libssl-dev
 
-          mkdir clang
-          cd clang
-          curl -LO https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman
-          chmod +x antman
-          ./antman -S
-          ./antman --patch=glibc
-          cd ..
-
-          git clone --depth=1 -b main https://github.com/greenforce-project/gcc-arm64 gcc64
-          git clone --depth=1 -b main https://github.com/greenforce-project/gcc-arm gcc32
+          git clone --depth=1 --single-branch \
+            -b clang-22-LTO \
+            https://gitlab.com/nekoshirro/Alchemist-LLVM.git clang
 
           echo "BUILD_TIME=$(TZ=Asia/Jakarta date '+%d%m%Y-%H%M')" >> "$GITHUB_ENV"
           echo "BUILD_DATE=\"$(TZ=Asia/Jakarta date '+%b %d %Y')\"" >> "$GITHUB_ENV"
           echo "CLANG_PATH=$GITHUB_WORKSPACE/clang" >> "$GITHUB_ENV"
-          echo "GCC64_PATH=$GITHUB_WORKSPACE/gcc64" >> "$GITHUB_ENV"
-          echo "GCC32_PATH=$GITHUB_WORKSPACE/gcc32" >> "$GITHUB_ENV"
 
       - name: 🥷 Setup NoMount
         run: curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh | bash -
@@ -56,17 +47,16 @@ jobs:
 
       - name: 🛠️ Build Kernel
         run: |
-          export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
+          export PATH="$CLANG_PATH/bin:$PATH"
           export KBUILD_BUILD_USER=Manipulator
           export KBUILD_BUILD_HOST=LineageOS
-          export KBUILD_COMPILER_STRING="Neutron clang version 24.0.0"
+          export KBUILD_COMPILER_STRING="Alchemist LLVM Project"
           export CFLAGS_EXTRA="-DBUILD_DATE=$BUILD_DATE"
 
           make O=out ARCH=arm64 vendor/sweet_defconfig
           make -j"$(nproc --all)" O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang \
-            CLANG_TRIPLE="$CLANG_PATH/aarch64-linux-gnu-" \
-            CROSS_COMPILE="$GCC64_PATH/bin/aarch64-elf-" \
-            CROSS_COMPILE_ARM32="$GCC32_PATH/bin/arm-eabi-"
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
           mv out/.config out/sweet_defconfig.txt
 
