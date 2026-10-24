@@ -3867,8 +3867,14 @@ static bool age_lruvec(struct lruvec *lruvec, struct scan_control *sc,
 	return true;
 }
 
-/* to protect the working set of the last N jiffies */
-static unsigned long lru_gen_min_ttl __read_mostly = 5 * HZ; // 5000ms
+/*
+ * Protect the working set of the last N jiffies.  Android tends to build a
+ * large young working set when several apps are started in a row; a 5 second
+ * guard made kswapd declare OOM before zram had a chance to absorb any of
+ * those pages.  Keep a short guard for normal aging, but let the fallback
+ * below reclaim young pages when swap is available.
+ */
+static unsigned long lru_gen_min_ttl __read_mostly = 1 * HZ; // 1000ms
 
 static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
 {
@@ -3909,9 +3915,34 @@ static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
 	current->reclaim_state->mm_walk = NULL;
 
 	/*
+	 * If every generation is younger than min_ttl, try aging once more
+	 * without the TTL guard while swap is available.  On Android, the
+	 * young pages are usually background-app anon pages and zram can take
+	 * them; killing an app before using free swap is much worse than
+	 * reclaiming those pages a little early.
+	 */
+	if (!success && !sc->order && get_nr_swap_pages() > 0) {
+		sc->memcgs_avoid_swapping = false;
+		current->reclaim_state->mm_walk = &pgdat->mm_walk;
+
+		memcg = mem_cgroup_iter(NULL, NULL, NULL);
+		do {
+			struct lruvec *lruvec = mem_cgroup_lruvec(pgdat, memcg);
+
+			if (age_lruvec(lruvec, sc, 0))
+				success = true;
+
+			cond_resched();
+		} while ((memcg = mem_cgroup_iter(NULL, memcg, NULL)));
+
+		current->reclaim_state->mm_walk = NULL;
+	}
+
+	/*
 	 * The main goal is to OOM kill if every generation from all memcgs is
-	 * younger than min_ttl. However, another theoretical possibility is all
-	 * memcgs are either below min or empty.
+	 * younger than min_ttl and there is no swap to absorb them. However,
+	 * another theoretical possibility is all memcgs are either below min
+	 * or empty.
 	 */
 	if (!success && !sc->order && mutex_trylock(&oom_lock)) {
 		struct oom_control oc = {
