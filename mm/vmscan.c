@@ -4493,7 +4493,13 @@ static unsigned long lru_gen_shrink_lruvec(struct lruvec *lruvec, struct scan_co
 		if (!delta)
 			goto done;
 
-		if (sc->memcgs_avoid_swapping && swappiness < 200 && swapped)
+		/*
+		 * A swappiness of 100 or more means anon pages should compete
+		 * with file pages (and 160+ means prefer them).  Do not stop
+		 * after the first swapped batch in that case; zram is exactly
+		 * where those background-app pages should go.
+		 */
+		if (sc->memcgs_avoid_swapping && swappiness < 100 && swapped)
 			break;
 
 		scanned += delta;
