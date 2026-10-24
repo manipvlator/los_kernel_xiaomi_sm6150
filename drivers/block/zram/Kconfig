@@ -55,6 +55,17 @@ config ZRAM_MEMORY_TRACKING
 
 	  See Documentation/blockdev/zram.txt for more information.
 
+config ZRAM_DEFAULT_COMP_ALGORITHM
+	string "Default ZRAM compression algorithm"
+	depends on ZRAM
+	default "lzo"
+	help
+	  Compression algorithm used by newly created zram devices.  The
+	  algorithm still has to be available in the kernel crypto API.
+	  LZ4 offers much lower compression/decompression latency than LZO
+	  at a slightly lower compression ratio, which is usually the right
+	  trade-off for a swap device.
+
 config ZRAM_ENTROPY
 	bool "Use entropy optimization for zram"
 	depends on ZRAM
