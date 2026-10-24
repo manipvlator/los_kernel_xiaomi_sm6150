@@ -265,6 +265,8 @@ config DEVFREQ_GOV_CDSPL3
 
 config DEVFREQ_BOOST
 	bool "Devfreq Boost"
+	depends on INPUT
+	depends on DRM_MSM=y
 	help
 	  Boosts enumerated devfreq devices upon input, and allows for boosting
 	  specific devfreq devices on other custom events. The boost frequencies
