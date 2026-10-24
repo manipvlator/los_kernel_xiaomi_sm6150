@@ -243,6 +243,9 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: 🏷️ Prepare Build Ref
+        run: echo "BUILD_REF=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_ENV"
+
       - name: 📦 Install Dependencies
         run: |
           sudo apt-get update
@@ -314,14 +317,14 @@ jobs:
 
       - name: 🗜️ Create Flashable ZIP
         run: |
-          ZIP_NAME="reforge_${{ matrix.build_type }}-${{ github.ref_name }}-${BUILD_TIME}.zip"
+          ZIP_NAME="reforge_${{ matrix.build_type }}-${BUILD_REF}-${BUILD_TIME}.zip"
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
           (cd AnyKernel3 && zip -r9 "../$ZIP_NAME" . -x ".git/*")
 
       - name: 📤 Upload ZIP Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: reforge_${{ matrix.build_type }}-${{ github.ref_name }}-${{ env.BUILD_TIME }}
+          name: reforge_${{ matrix.build_type }}-${{ env.BUILD_REF }}-${{ env.BUILD_TIME }}
           path: AnyKernel3/*
 
       - name: 📤 Upload Defconfig Artifact
