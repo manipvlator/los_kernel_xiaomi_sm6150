@@ -289,6 +289,8 @@ config CPU_FREQ_GOV_INTERACTIVE
 
 config CPU_INPUT_BOOST
 	bool "CPU Input Boost"
+	depends on CPU_FREQ
+	depends on DRM_MSM=y
 	help
 	  Boosts the CPU on touchscreen and touchpad input, and allows for
 	  boosting on other custom events, mainly which is intended to be for
