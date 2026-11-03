@@ -223,7 +223,7 @@ jobs:
 
   Reforging:
     name: Reforging - ${{ matrix.build_type }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: tracker
     strategy:
       fail-fast: false
@@ -246,7 +246,7 @@ jobs:
       - name: 📦 Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison cpio flex aria2 lz4 libssl-dev patchelf rsync openssh-client zip unzip
+          sudo apt-get install -y bc bison cpio flex aria2 lz4 libssl-dev libxml2 patchelf rsync openssh-client zip unzip
 
       - name: 🔐 Setup SourceForge SSH
         env:

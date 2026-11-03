@@ -5,7 +5,7 @@ on:
 
 jobs:
   Reforging:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
           sudo apt update -y
-          sudo apt install -y bc cpio flex bison git python-is-python3 tar aria2 perl wget curl lz4 libssl-dev
+          sudo apt install -y bc cpio flex bison git python-is-python3 tar aria2 perl wget curl lz4 libssl-dev libxml2
 
           mkdir -p clang && cd clang
           wget https://github.com/ZyCromerZ/Clang/releases/download/17.0.0-20230725-release/Clang-17.0.0-20230725.tar.gz
