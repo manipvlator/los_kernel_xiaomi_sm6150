@@ -900,6 +900,24 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		csiphy_dev->acquire_count--;
 
 		if (csiphy_dev->acquire_count == 0) {
+			/*
+			 * Userspace can release the device without sending
+			 * CAM_STOP_DEV first. Do not leave the CSIPHY and
+			 * the CPAS vote running in that case, otherwise the
+			 * next session fails in cam_cpas_start() with
+			 * -EALREADY and the camera stays unusable until the
+			 * device is rebooted.
+			 */
+			if (csiphy_dev->start_dev_count) {
+				CAM_ERR(CAM_CSIPHY,
+					"release while started, cnt: %d",
+					csiphy_dev->start_dev_count);
+				cam_csiphy_disable_hw(csiphy_dev);
+				csiphy_dev->start_dev_count = 0;
+				if (cam_cpas_stop(csiphy_dev->cpas_handle) < 0)
+					CAM_ERR(CAM_CSIPHY,
+						"de-voting CPAS failed");
+			}
 			csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
 			/* reset config count */
 			csiphy_dev->config_count = 0;
@@ -968,10 +986,24 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 
 		rc = cam_cpas_start(csiphy_dev->cpas_handle,
 			&ahb_vote, &axi_vote);
+		if (rc == -EALREADY) {
+			/*
+			 * The CPAS client is still marked as started, which
+			 * means an earlier session never completed its
+			 * cleanup. Drop the leftover vote and try once more
+			 * instead of failing the stream on.
+			 */
+			CAM_ERR(CAM_CSIPHY,
+				"CPAS already started, resyncing");
+			rc = cam_cpas_stop(csiphy_dev->cpas_handle);
+			if (rc < 0)
+				CAM_ERR(CAM_CSIPHY,
+					"de-voting CPAS: %d", rc);
+			rc = cam_cpas_start(csiphy_dev->cpas_handle,
+				&ahb_vote, &axi_vote);
+		}
 		if (rc < 0) {
 			CAM_ERR(CAM_CSIPHY, "voting CPAS: %d", rc);
-			if (rc == -EALREADY)
-				cam_cpas_stop(csiphy_dev->cpas_handle);
 			goto release_mutex;
 		}
 
