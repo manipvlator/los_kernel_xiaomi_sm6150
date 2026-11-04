@@ -132,6 +132,14 @@ static int ea_panel_send_pcc(u32 bl_lvl)
 			prop->base.id, blob->length);
 
 	rc = sde_cp_crtc_set_property(crtc, prop, blob->base.id);
+	/*
+	 * sde_cp_crtc_set_property() takes its own reference on the blob when
+	 * it stores it in the property node, so the reference returned by
+	 * drm_property_create_blob() has to be dropped here.  Without this
+	 * every PCC update leaks a blob and the kernel slowly runs out of
+	 * memory while the anti-flicker feature is in use.
+	 */
+	drm_property_blob_put(blob);
 	if (rc) {
 		pr_err("DSPP: Cannot set PCC: %d.\n", rc);
 		return rc;
