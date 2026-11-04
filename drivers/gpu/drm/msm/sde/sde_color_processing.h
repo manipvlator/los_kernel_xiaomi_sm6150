@@ -84,6 +84,19 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 				struct drm_property *property, uint64_t val);
 
 /**
+ * sde_cp_crtc_set_property_ea: Set a color processing property on behalf of
+ *                              the exposure adjustment driver.
+ *                              Behaves like sde_cp_crtc_set_property(), but
+ *                              the update is honoured even while the exposure
+ *                              adjustment driver owns the PCC block.
+ * @crtc: Pointer to crtc.
+ * @property: Property that needs to enabled/disabled.
+ * @val: Value of property.
+ */
+int sde_cp_crtc_set_property_ea(struct drm_crtc *crtc,
+				struct drm_property *property, uint64_t val);
+
+/**
  * sde_cp_crtc_apply_properties: Enable/disable properties
  *                               for a crtc.
  *                               Should be called during atomic commit call.

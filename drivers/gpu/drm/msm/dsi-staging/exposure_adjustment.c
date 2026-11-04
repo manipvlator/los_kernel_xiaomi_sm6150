@@ -28,6 +28,7 @@
 #include "dsi_panel.h"
 #include "../sde/sde_crtc.h"
 #include "../sde/sde_plane.h"
+#include "../sde/sde_color_processing.h"
 #include "exposure_adjustment.h"
 
 /*
@@ -45,6 +46,7 @@ static bool pcc_backlight_enable;
 static bool pcc_clamped;
 static bool pcc_applied;
 static struct dsi_panel *ea_panel;
+static struct drm_crtc *ea_crtc;
 static u32 last_level = ELVSS_OFF_THRESHOLD;
 
 /*
@@ -131,9 +133,9 @@ static int ea_panel_send_pcc(u32 bl_lvl)
 	pr_debug("DSPP Blob ID %d has length %zu\n",
 			prop->base.id, blob->length);
 
-	rc = sde_cp_crtc_set_property(crtc, prop, blob->base.id);
+	rc = sde_cp_crtc_set_property_ea(crtc, prop, blob->base.id);
 	/*
-	 * sde_cp_crtc_set_property() takes its own reference on the blob when
+	 * sde_cp_crtc_set_property_ea() takes its own reference on the blob when
 	 * it stores it in the property node, so the reference returned by
 	 * drm_property_create_blob() has to be dropped here.  Without this
 	 * every PCC update leaks a blob and the kernel slowly runs out of
@@ -147,6 +149,7 @@ static int ea_panel_send_pcc(u32 bl_lvl)
 
 	mutex_lock(&ea_lock);
 	pcc_applied = true;
+	ea_crtc = crtc;
 	mutex_unlock(&ea_lock);
 
 	return 0;
@@ -169,7 +172,7 @@ static void ea_panel_disable_pcc(void)
 	if (ea_panel_get_pcc(&crtc, &prop))
 		return;
 
-	rc = sde_cp_crtc_set_property(crtc, prop, 0);
+	rc = sde_cp_crtc_set_property_ea(crtc, prop, 0);
 	if (rc) {
 		pr_err("DSPP: Cannot disable PCC: %d.\n", rc);
 		return;
@@ -240,6 +243,29 @@ void ea_panel_reset(void)
 bool ea_panel_is_enabled(void)
 {
 	return pcc_backlight_enable;
+}
+
+/*
+ * While the anti-flicker dimming is in effect the backlight is pinned at
+ * ELVSS_OFF_THRESHOLD and the PCC block carries the actual brightness, so a
+ * PCC update coming from anybody else (the composer re-sends its own PCC blob
+ * when the display is rotated) would replace the dimming coefficients and
+ * leave the panel at the pinned level until the next backlight update.  Tell
+ * the color processing layer to drop those updates while this driver owns the
+ * block; the driver's own updates go through sde_cp_crtc_set_property_ea().
+ */
+bool ea_panel_pcc_is_dim_active(struct drm_crtc *crtc)
+{
+	bool active;
+
+	mutex_lock(&ea_lock);
+	active = pcc_backlight_enable && pcc_applied && ea_crtc == crtc &&
+			last_level && last_level < ELVSS_OFF_THRESHOLD &&
+			ea_panel && ea_panel->panel_initialized &&
+			!ea_panel->in_aod;
+	mutex_unlock(&ea_lock);
+
+	return active;
 }
 
 void ea_panel_mode_ctrl(struct dsi_panel *panel, bool enable)

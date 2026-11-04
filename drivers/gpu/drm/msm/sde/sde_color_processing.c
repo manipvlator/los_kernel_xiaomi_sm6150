@@ -25,6 +25,7 @@
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
 #include "dsi_panel.h"
+#include "exposure_adjustment.h"
 
 #ifdef CONFIG_DRM_MSM_KCAL_CTRL
 #include "sde_hw_kcal_ctrl.h"
@@ -1037,9 +1038,9 @@ struct drm_property *g_pcc_property;
 uint64_t g_pcc_val;
 #endif
 
-int sde_cp_crtc_set_property(struct drm_crtc *crtc,
+static int sde_cp_crtc_set_property_common(struct drm_crtc *crtc,
 				struct drm_property *property,
-				uint64_t val)
+				uint64_t val, bool ea_owner)
 {
 	struct sde_cp_node *prop_node = NULL;
 	struct sde_crtc *sde_crtc = NULL;
@@ -1067,6 +1068,24 @@ int sde_cp_crtc_set_property(struct drm_crtc *crtc,
 
 	if (!found) {
 		ret = -ENOENT;
+		goto exit;
+	}
+
+	/*
+	 * While the exposure adjustment (anti-flicker) dimming is in effect the
+	 * backlight is pinned at ELVSS_OFF_THRESHOLD and the PCC block carries
+	 * the real brightness.  Ignore PCC updates from anybody else in that
+	 * state, otherwise the composer re-sending its own PCC blob (it does
+	 * that on every rotation) replaces the dimming coefficients and the
+	 * panel is left brighter, at the pinned backlight level, until the
+	 * next backlight update.  The driver's own updates go through
+	 * sde_cp_crtc_set_property_ea().
+	 */
+	if (prop_node->feature == SDE_CP_CRTC_DSPP_PCC && !ea_owner &&
+			ea_panel_pcc_is_dim_active(crtc)) {
+		DRM_DEBUG_DRIVER("%s: PCC owned by exposure adjustment\n",
+				__func__);
+		ret = 0;
 		goto exit;
 	}
 
@@ -1139,11 +1158,32 @@ exit:
 	return ret;
 }
 
+int sde_cp_crtc_set_property(struct drm_crtc *crtc,
+				struct drm_property *property,
+				uint64_t val)
+{
+	return sde_cp_crtc_set_property_common(crtc, property, val, false);
+}
+
+int sde_cp_crtc_set_property_ea(struct drm_crtc *crtc,
+				struct drm_property *property,
+				uint64_t val)
+{
+	return sde_cp_crtc_set_property_common(crtc, property, val, true);
+}
+
 #ifdef CONFIG_DRM_MSM_KCAL_CTRL
 void kcal_force_update(void) {
 	if (g_pcc_crtc) {
 		pr_debug("%s force kad kcal\n", __func__);
-		sde_cp_crtc_set_property(g_pcc_crtc, g_pcc_property, g_pcc_val);
+		/*
+		 * The stored value is the latest PCC blob, which belongs to the
+		 * exposure adjustment driver while its dimming is active, so go
+		 * through the owner-aware path to get the new kcal scaling
+		 * applied instead of having the update dropped.
+		 */
+		sde_cp_crtc_set_property_ea(g_pcc_crtc, g_pcc_property,
+					    g_pcc_val);
 	}
 }
 EXPORT_SYMBOL(kcal_force_update);
