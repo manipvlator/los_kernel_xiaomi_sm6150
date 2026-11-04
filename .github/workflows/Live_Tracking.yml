@@ -278,7 +278,7 @@ jobs:
         if: matrix.build_type == 'KSU-AOSP' || matrix.build_type == 'KSU-OEM'
         run: |
           curl -LSs https://raw.githubusercontent.com/manipvlator/KernelSU/refs/heads/main/kernel/setup.sh | bash -s main
-          curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh | bash -
+          curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/master/kernel/setup.sh | bash -s master
 
       - name: 📱 Apply OEM Display Dimensions
         if: matrix.build_type == 'KSU-OEM'

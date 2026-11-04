@@ -40,7 +40,7 @@ jobs:
           echo "GCC32_PATH=$GITHUB_WORKSPACE/gcc32" >> "$GITHUB_ENV"
 
       - name: 🥷 Setup NoMount
-        run: curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh | bash -
+        run: curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/master/kernel/setup.sh | bash -s master
 
       - name: 📥 Setup KernelSU
         if: matrix.build_type == 'KSU-AOSP' || matrix.build_type == 'KSU-OEM'
