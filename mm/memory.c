@@ -4621,11 +4621,12 @@ int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
 	struct vm_area_struct *vma;
 	void *old_buf = buf;
 	int write = gup_flags & FOLL_WRITE;
-#ifdef CONFIG_KSU_SUSFS_SUS_MAP
-	vma = find_vma(mm, addr);
-#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
 
 	down_read(&mm->mmap_sem);
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+	/* find_vma() walks the VMA tree, so it needs mmap_sem held. */
+	vma = find_vma(mm, addr);
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
 	/* ignore errors, just check how much was successfully transferred */
 	while (len) {
 		int bytes, ret, offset;
