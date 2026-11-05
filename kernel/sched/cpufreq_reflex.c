@@ -67,7 +67,13 @@
 /* s*(p * lambda) is tabulated at this many evenly spaced p */
 #define RFX_FLOOR_N		65
 /* latency_weight: lambda, per mille of lambda_max */
-#define RFX_LATENCY_WEIGHT_DEF	1000
+/*
+ * sweet: policy0 is six CPUs at capacity 488 and tops out at 1.80 GHz;
+ * policy6 tops out at 2.30 GHz. 550 puts the p=1 floor near 1.48/1.89
+ * GHz, around where the device settles under load; 1000 would hold a
+ * stalled six-CPU policy at fmax.
+ */
+#define RFX_LATENCY_WEIGHT_DEF	550
 #define RFX_LATENCY_WEIGHT_LIM	100000
 
 struct rfx_tunables {
