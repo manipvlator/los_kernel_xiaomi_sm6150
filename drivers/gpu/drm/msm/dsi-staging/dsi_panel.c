@@ -1999,6 +1999,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-dispparam-dc-on-command",
 	"qcom,mdss-dsi-dispparam-dc-off-command",
 	"qcom,mdss-dsi-dispparam-bc-120hz-command",
+	"qcom,mdss-dsi-dispparam-bc-90hz-command",
 	"qcom,mdss-dsi-dispparam-bc-60hz-command",
 };
 
@@ -2042,6 +2043,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-dispparam-dc-on-command-state",
 	"qcom,mdss-dsi-dispparam-dc-off-command-state",
 	"qcom,mdss-dsi-dispparam-bc-120hz-command-state",
+	"qcom,mdss-dsi-dispparam-bc-90hz-command-state",
 	"qcom,mdss-dsi-dispparam-bc-60hz-command-state",
 };
 
@@ -3968,10 +3970,17 @@ void dsi_panel_gamma_mode_change(struct dsi_panel *panel,
 	if (!count)
 		goto exit;
 
-	if (adj_mode->timing.refresh_rate == 120)
+	switch (adj_mode->timing.refresh_rate) {
+	case 120:
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_BC_120HZ);
-	else if (adj_mode->timing.refresh_rate == 60)
+		break;
+	case 90:
+	case 60:
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_BC_60HZ);
+		break;
+	default:
+		break;
+	}
 
 	if (rc)
 		pr_err("%s: send cmds failed...", __func__);
