@@ -67,7 +67,7 @@ jobs:
             CROSS_COMPILE="$GCC64_PATH/bin/aarch64-elf-" \
             CROSS_COMPILE_ARM32="$GCC32_PATH/bin/arm-eabi-"
 
-          mv out/.config out/sweet_defconfig.txt
+          cp out/.config out/sweet_defconfig.txt
 
       - name: 💾 Upload Config
         uses: actions/upload-artifact@v7
@@ -75,10 +75,35 @@ jobs:
           name: configs-${{ matrix.build_type }}-${{ env.BUILD_TIME }}
           path: out/sweet_defconfig.txt
 
+      - name: 📦 Build 90Hz DTBO
+        run: |
+          cp out/arch/arm64/boot/dtb.img "$RUNNER_TEMP/dtb-stock.img"
+          cp out/arch/arm64/boot/dtbo.img "$RUNNER_TEMP/dtbo-stock.img"
+
+          git apply arch/arm64/boot/dts/qcom/90hz-dtbo.patch
+          rm -rf out/arch/arm64/boot/dts out/arch/arm64/boot/dtb.img out/arch/arm64/boot/dtbo.img
+
+          export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
+          export KBUILD_BUILD_USER=Manipulator
+          export KBUILD_BUILD_HOST=ExoticGANK
+          export KBUILD_COMPILER_STRING="$CLANG_PATH/bin/clang"
+          export CFLAGS_EXTRA="-DBUILD_DATE=$BUILD_DATE"
+
+          make -j"$(nproc --all)" O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE="$GCC64_PATH/bin/aarch64-elf-" \
+            CROSS_COMPILE_ARM32="$GCC32_PATH/bin/arm-eabi-"
+
+          cp out/arch/arm64/boot/dtbo.img "$RUNNER_TEMP/dtbo-90hz.img"
+          cp "$RUNNER_TEMP/dtb-stock.img" out/arch/arm64/boot/dtb.img
+          cp "$RUNNER_TEMP/dtbo-stock.img" out/arch/arm64/boot/dtbo.img
+          git apply -R arch/arm64/boot/dts/qcom/90hz-dtbo.patch
+
       - name: 📂 Prepare AnyKernel3
         run: |
           git clone --depth=1 -b strix https://github.com/manipvlator/Anykernel3.git AnyKernel3
           cp out/arch/arm64/boot/{Image.gz,dtbo.img,dtb.img} AnyKernel3/
+          cp "$RUNNER_TEMP/dtbo-90hz.img" AnyKernel3/dtbo-90hz.img
           (cd AnyKernel3 && zip -r "../StriXotic-Limited_${{ matrix.build_type }}-${{ github.ref_name }}-${BUILD_TIME}.zip" . -x ".git/*")
 
       - name: 📤 Upload Flashable ZIP

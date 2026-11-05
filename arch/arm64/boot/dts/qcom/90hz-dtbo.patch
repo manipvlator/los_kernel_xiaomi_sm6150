@@ -1,0 +1,26 @@
+diff --git a/arch/arm64/boot/dts/qcom/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi b/arch/arm64/boot/dts/qcom/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
+index d6e4c678c628..96d6596cf252 100644
+--- a/arch/arm64/boot/dts/qcom/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
++++ b/arch/arm64/boot/dts/qcom/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
+@@ -58,7 +58,7 @@
+ 		/* DFPS */
+ 		qcom,mdss-dsi-pan-enable-dynamic-fps;
+ 		qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+-		qcom,dsi-supported-dfps-list = <120 60>;
++		qcom,dsi-supported-dfps-list = <120 90 60>;
+ 
+ 		qcom,mdss-dsi-panel-dc-threshold = <488>;
+ 		qcom,mdss-dsi-panel-k6-dc-flag;
+diff --git a/arch/arm64/boot/dts/qcom/sweet-sdmmagpie.dtsi b/arch/arm64/boot/dts/qcom/sweet-sdmmagpie.dtsi
+index cc40fcf60038..34276a54c468 100644
+--- a/arch/arm64/boot/dts/qcom/sweet-sdmmagpie.dtsi
++++ b/arch/arm64/boot/dts/qcom/sweet-sdmmagpie.dtsi
+@@ -711,7 +711,7 @@ And public attribution of xiaomi platforms(like F3 and so and)
+ &dsi_k6_38_0c_0a_fhd_dsc_video {
+ 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+ 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+-	qcom,mdss-dsi-bl-min-level = <8>;
++	qcom,mdss-dsi-bl-min-level = <20>;
+ 	qcom,mdss-dsi-bl-max-level = <2047>;
+ 	qcom,mdss-brightness-max-level = <2047>;
+ 	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
