@@ -236,13 +236,16 @@ config CPU_FREQ_GOV_REFLEX
         select CPU_FREQ_GOV_ATTR_SET
         select IRQ_WORK
         help
-          This governor combines interactive-style fast ramp-up with
-          schedutil's scheduler utilization tracking. It uses EWMA smoothing
-          and trend-based load prediction for proactive frequency scaling.
+          This governor is schedutil plus a measured fast path for rising
+          load. It measures, from each CPU's idle time and frequency scale,
+          the demand that CPU actually ran; an interval without any idle
+          means the CPU is falling behind, and the governor then runs it at
+          the speed that best trades latency against energy instead of
+          waiting for PELT to ramp up. Otherwise it tracks demand like
+          schedutil, never below a cube-law efficient floor.
 
-          When a CPU transitions from idle to busy, the governor instantly
-          jumps to a configurable "hispeed" frequency, then proportionally
-          scales based on scheduler utilization data.
+          The latency_weight tunable sets the trade-off; 1000 runs work
+          that is behind at the maximum frequency.
 
           To compile this driver as a module, choose M here: the
           module will be called cpufreq_reflex.

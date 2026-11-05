@@ -1955,6 +1955,10 @@ static inline u64 sched_ktime_clock(void)
 extern void sched_avg_update(struct rq *rq);
 extern unsigned long sched_get_rt_rq_util(int cpu);
 
+#ifdef CONFIG_CPU_FREQ
+extern u64 cpufreq_pelt_decay(u64 val, u64 delta_ns);
+#endif
+
 #ifndef arch_scale_freq_capacity
 static __always_inline
 unsigned long arch_scale_freq_capacity(struct sched_domain *sd, int cpu)

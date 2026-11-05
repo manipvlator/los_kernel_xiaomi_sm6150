@@ -3080,6 +3080,21 @@ static u64 decay_load(u64 val, u64 n)
 	return val;
 }
 
+#ifdef CONFIG_CPU_FREQ
+/**
+ * cpufreq_pelt_decay - Decay a value over a span exactly as PELT does.
+ * @val: the value to decay.
+ * @delta_ns: the span, in ns; counted in whole PELT periods (1024 * 1024 ns).
+ *
+ * For cpufreq governors that keep their own PELT-paced signal.
+ */
+u64 cpufreq_pelt_decay(u64 val, u64 delta_ns)
+{
+	return decay_load(val, delta_ns >> 20);
+}
+EXPORT_SYMBOL_GPL(cpufreq_pelt_decay);
+#endif
+
 static u32 __accumulate_pelt_segments(u64 periods, u32 d1, u32 d3)
 {
 	u32 c1, c2, c3 = d3; /* y^0 == 1 */
