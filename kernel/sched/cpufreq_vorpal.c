@@ -209,9 +209,14 @@ static atomic_t rfx_temp_mc = ATOMIC_INIT(0);
 static LIST_HEAD(rfx_policy_list);
 static DEFINE_SPINLOCK(rfx_policy_list_lock);
 
+/* sweet (SM7150) big-cluster sensor. thermal_zone_get_zone_by_name() matches
+ * the zone type, not the "thermal_zoneN" device name, so "thermal_zone0"
+ * never resolved and the emergency net stayed disabled. */
+#define RFX_THERMAL_ZONE_DEFAULT	"cpuss-1-usr"
+
 /* Thermal poller state (deferrable, sleeps -> never in the util hook). */
 static struct thermal_zone_device *rfx_tz;
-static char rfx_tz_name[THERMAL_NAME_LENGTH] = "thermal_zone0";
+static char rfx_tz_name[THERMAL_NAME_LENGTH] = RFX_THERMAL_ZONE_DEFAULT;
 static struct delayed_work rfx_thermal_work;
 
 /* ===================================================================== */
@@ -1556,6 +1561,19 @@ static int rfx_init(struct cpufreq_policy *policy)
 		return -EBUSY;
 
 	cpufreq_enable_fast_switch(policy);
+
+	/* Resolve the default zone once the thermal core has probed the
+	 * sensors; the governor is selected long after that on boot. */
+	if (!READ_ONCE(rfx_tz) && rfx_tz_name[0]) {
+		struct thermal_zone_device *tz =
+			thermal_zone_get_zone_by_name(rfx_tz_name);
+
+		if (!IS_ERR(tz)) {
+			WRITE_ONCE(rfx_tz, tz);
+			mod_delayed_work(system_power_efficient_wq,
+					 &rfx_thermal_work, 0);
+		}
+	}
 
 	p = rfx_policy_alloc(policy);
 	if (!p) {
