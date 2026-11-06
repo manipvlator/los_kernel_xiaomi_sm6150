@@ -657,7 +657,7 @@ static unsigned int rfx_target_freq(struct rfx_policy *p, unsigned long util,
 				    unsigned long max_cap, u64 time, bool gaming)
 {
 	struct cpufreq_policy *pol = p->policy;
-	unsigned int fmin = pol->cpuinfo.min_freq;
+	unsigned int fmin = pol->min;
 	bool little = p->is_little;
 	bool prime = p->is_prime;
 	unsigned int freq;
@@ -1084,8 +1084,17 @@ static void rfx_update(struct update_util_data *hook, u64 time,
 			/* Inside update_lock: the call may not run twice in
 			 * parallel for one policy. */
 			if (p->policy->fast_switch_enabled) {
-				cpufreq_driver_fast_switch(p->policy,
-							   p->next_freq);
+				unsigned int actual_f;
+
+				actual_f = cpufreq_driver_fast_switch(p->policy,
+								      p->next_freq);
+				/* 4.14's core does not update policy->cur on the
+				 * fast-switch path; keep the governor state and
+				 * the sysfs view in sync with the programmed OPP. */
+				if (actual_f) {
+					p->policy->cur = actual_f;
+					p->next_freq = actual_f;
+				}
 			} else if (!p->work_in_progress) {
 				p->work_in_progress = true;
 				do_deferred = true;
@@ -1455,6 +1464,8 @@ static void rfx_policy_free(struct rfx_policy *p)
  * through here). SCHED_DEADLINE, not SCHED_FIFO: a DL task needs the clock
  * this worker is about to raise, so it must not be preemptible by one, and an
  * RT worker shares rt_rq bandwidth a runaway vendor RT thread can throttle.
+ * If DL admission fails, fall back to SCHED_FIFO rather than refusing to
+ * start the governor.
  */
 static int rfx_kthread_create(struct rfx_policy *p)
 {
@@ -1481,9 +1492,14 @@ static int rfx_kthread_create(struct rfx_policy *p)
 
 	ret = rfx_setattr_sugov(thread);
 	if (ret) {
-		kthread_stop(thread);
-		pr_warn("vorpal: failed to set SCHED_DEADLINE\n");
-		return ret;
+		struct sched_param param = { .sched_priority = MAX_RT_PRIO / 2 };
+
+		ret = sched_setscheduler_nocheck(thread, SCHED_FIFO, &param);
+		if (ret) {
+			kthread_stop(thread);
+			pr_warn("vorpal: failed to set SCHED_FIFO priority\n");
+			return ret;
+		}
 	}
 
 	p->thread = thread;
@@ -1659,7 +1675,11 @@ static int rfx_start(struct cpufreq_policy *policy)
 	p->last_upfreq_time = now;
 	p->last_downfreq_time = now;
 	p->last_eval_time = now;
-	p->next_freq = policy->cur > 0 ? policy->cur : policy->cpuinfo.min_freq;
+	p->next_freq = policy->cur > 0 ? policy->cur : policy->min;
+	/* Seed cached_resolved_idx with the frequency the hardware is already
+	 * running at, so an early fast-switch commit never reads a stale index. */
+	if (policy->fast_switch_enabled)
+		cpufreq_driver_resolve_freq(policy, p->next_freq);
 	p->cached_raw_freq = 0;
 	p->pending_raw_freq = 0;
 	/* Unthrottled baseline; only ratchets up. */
