@@ -325,7 +325,8 @@ static void dsi_bridge_enable(struct drm_bridge *bridge)
 
 #ifdef CONFIG_MACH_XIAOMI_SWEET
 	if (c_bridge->display->panel->cur_mode->timing.refresh_rate == 120)
-		dsi_panel_gamma_mode_change(c_bridge->display->panel, c_bridge->display->panel->cur_mode);
+		dsi_panel_gamma_mode_change(c_bridge->display->panel,
+				c_bridge->display->panel->cur_mode);
 #endif
 
 	if (c_bridge->dsi_mode.dsi_mode_flags &
