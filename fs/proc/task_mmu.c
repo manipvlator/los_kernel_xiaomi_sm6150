@@ -31,7 +31,7 @@
 #include "internal.h"
 
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-extern void susfs_show_map_vma_spoofer(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);
+extern void susfs_sus_kstat_spoof_show_map_vma(struct inode *inode, dev_t *out_dev, unsigned long *out_ino);
 #endif
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 extern struct srcu_struct susfs_srcu_open_redirect;
@@ -395,7 +395,7 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 		ino = inode->i_ino;
 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-		susfs_show_map_vma_spoofer(inode, &dev, &ino);
+		susfs_sus_kstat_spoof_show_map_vma(inode, &dev, &ino);
 #endif
 	}
 

@@ -36,7 +36,7 @@
  */
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 extern bool susfs_is_inode_sus_kstat(struct inode *inode, bool *out_is_fuse);
-extern void susfs_generic_fillattr_spoofer(struct inode *inode, struct kstat *stat, u32 result_mask);
+extern void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat, u32 result_mask);
 #endif
 
 void generic_fillattr(struct inode *inode, struct kstat *stat)
@@ -110,9 +110,9 @@ int vfs_getattr_nosec(const struct path *path, struct kstat *stat,
 					    query_flags);
 		if (!err) {
 			if (stat->result_mask & STATX_SUS_KSTAT)
-				susfs_generic_fillattr_spoofer(inode, stat, STATX_SUS_KSTAT);
+				susfs_sus_kstat_spoof_generic_fillattr(inode, stat, STATX_SUS_KSTAT);
 			else if (stat->result_mask & STATX_SUS_KSTAT_FUSE)
-				susfs_generic_fillattr_spoofer(inode, stat, STATX_SUS_KSTAT_FUSE);
+				susfs_sus_kstat_spoof_generic_fillattr(inode, stat, STATX_SUS_KSTAT_FUSE);
 		}
 		/* never let our internal request marks leak to userspace (stx_mask) */
 		stat->result_mask &= ~(STATX_SUS_KSTAT | STATX_SUS_KSTAT_FUSE);
@@ -120,13 +120,13 @@ int vfs_getattr_nosec(const struct path *path, struct kstat *stat,
 	}
 	if (stat->result_mask & STATX_SUS_KSTAT) {
 		generic_fillattr(inode, stat);
-		susfs_generic_fillattr_spoofer(inode, stat, STATX_SUS_KSTAT);
+		susfs_sus_kstat_spoof_generic_fillattr(inode, stat, STATX_SUS_KSTAT);
 		stat->result_mask &= ~(STATX_SUS_KSTAT | STATX_SUS_KSTAT_FUSE);
 		return 0;
 	}
 	if (stat->result_mask & STATX_SUS_KSTAT_FUSE) {
 		generic_fillattr(inode, stat);
-		susfs_generic_fillattr_spoofer(inode, stat, STATX_SUS_KSTAT_FUSE);
+		susfs_sus_kstat_spoof_generic_fillattr(inode, stat, STATX_SUS_KSTAT_FUSE);
 		stat->result_mask &= ~(STATX_SUS_KSTAT | STATX_SUS_KSTAT_FUSE);
 		return 0;
 	}

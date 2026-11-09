@@ -74,6 +74,16 @@ static int statfs_by_dentry(struct dentry *dentry, struct kstatfs *buf)
 extern bool susfs_is_inode_sus_kstat(struct inode *inode, bool *out_is_fuse);
 extern int susfs_sus_kstat_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf, bool *is_fuse);
 
+int statfs_by_dentry_wrapper(struct dentry *dentry, struct kstatfs *buf)
+{
+	return statfs_by_dentry(dentry, buf);
+}
+
+int calculate_f_flags_wrapper(struct vfsmount *mnt)
+{
+	return calculate_f_flags(mnt);
+}
+
 /* - Like statfs_by_dentry(), but if the inode is flagged SUS_KSTAT we copy the
  *   pre-computed spoofed kstatfs of the underlying (non-sus) mount instead of
  *   calling the real ->statfs(). OPEN_REDIRECT no longer spoofs statfs itself;
