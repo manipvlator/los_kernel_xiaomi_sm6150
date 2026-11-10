@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build_type: [KSU-AOSP, KSU-OEM, Non-KSU]
+        build_type: [KSU-AOSP, Non-KSU]
 
     steps:
       - name: 🔄 Checkout Code
@@ -42,17 +42,8 @@ jobs:
         run: curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh | bash -
 
       - name: 📥 Setup KernelSU
-        if: matrix.build_type == 'KSU-AOSP' || matrix.build_type == 'KSU-OEM'
+        if: matrix.build_type == 'KSU-AOSP'
         run: curl -LSs https://raw.githubusercontent.com/manipvlator/KernelSU/refs/heads/main/kernel/setup.sh | bash -s main
-
-      - name: 📐 OEM Dimension
-        if: matrix.build_type == 'KSU-OEM'
-        run: |
-          DTS=arch/arm64/boot/dts/qcom/xiaomi/sweet/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi
-          sed -i \
-            -e 's/qcom,mdss-pan-physical-width-dimension = <69>;/qcom,mdss-pan-physical-width-dimension = <695>;/' \
-            -e 's/qcom,mdss-pan-physical-height-dimension = <154>;/qcom,mdss-pan-physical-height-dimension = <1546>;/' \
-            "$DTS"
 
       - name: 🛠️ Build Kernel
         run: |
