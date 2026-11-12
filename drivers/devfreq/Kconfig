@@ -296,6 +296,13 @@ config DEVFREQ_CPU_LLCC_DDR_BW_BOOST_FREQ
 	help
 	  Boost frequency for the MSM DDR bus.
 
+config DEVFREQ_GPU_BOOST_FREQ
+	int "Boost freq for gpu device"
+	default "0"
+	help
+	  Boost frequency for the GPU, in Hz. This is the minimum GPU
+	  frequency used while the screen is being touched.
+
 endif
 
 source "drivers/devfreq/event/Kconfig"

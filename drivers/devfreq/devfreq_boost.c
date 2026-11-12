@@ -25,6 +25,7 @@ struct boost_dev {
 	wait_queue_head_t boost_waitq;
 	atomic_long_t max_boost_expires;
 	unsigned long boost_freq;
+	unsigned long default_min_freq;
 	unsigned long state;
 };
 
@@ -55,7 +56,9 @@ static void devfreq_max_unboost(struct work_struct *work);
 
 static struct df_boost_drv df_boost_drv_g __read_mostly = {
 	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_CPU_LLCC_DDR_BW,
-		       CONFIG_DEVFREQ_CPU_LLCC_DDR_BW_BOOST_FREQ)
+		       CONFIG_DEVFREQ_CPU_LLCC_DDR_BW_BOOST_FREQ),
+	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_GPU,
+		       CONFIG_DEVFREQ_GPU_BOOST_FREQ)
 };
 
 static void __devfreq_boost_kick(struct boost_dev *b)
@@ -139,6 +142,7 @@ void devfreq_register_boost_device(enum df_device device, struct devfreq *df)
 
 	df->is_boost_device = true;
 	b = &d->devices[device];
+	WRITE_ONCE(b->default_min_freq, df->min_freq);
 	WRITE_ONCE(b->df, df);
 }
 
@@ -164,14 +168,17 @@ static void devfreq_update_boosts(struct boost_dev *b, unsigned long state)
 {
 	struct devfreq *df = b->df;
 
+	if (!df)
+		return;
+
 	mutex_lock(&df->lock);
 	if (state & BIT(SCREEN_OFF)) {
-		df->min_freq = df->profile->freq_table[0];
+		df->min_freq = b->default_min_freq;
 		df->max_boost = false;
 	} else {
 		df->min_freq = state & BIT(INPUT_BOOST) ?
 			       min(b->boost_freq, df->max_freq) :
-			       df->profile->freq_table[0];
+			       b->default_min_freq;
 		df->max_boost = state & BIT(MAX_BOOST);
 	}
 	update_devfreq(df);
