@@ -24,6 +24,11 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#ifdef CONFIG_CPU_FREQ
+#include <linux/cpufreq.h>
+#include <linux/cpumask.h>
+#endif
+
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -89,7 +94,12 @@ DEFINE_SPINLOCK(kp_set_mode_lock);
 #define kp_err(fmt, ...) pr_err(fmt, ##__VA_ARGS__)
 #define kp_info(fmt, ...) pr_info(fmt, ##__VA_ARGS__)
 
-static void kp_trigger_mode_change_event(void);
+static __always_inline void kp_trigger_mode_change_event(void);
+
+#ifdef CONFIG_CPU_FREQ
+int kp_governor_register(void);
+void kp_governor_unregister(void);
+#endif
 
 /*
  * Notify consumers immediately when userspace toggles automatic mode. Without
@@ -440,6 +450,82 @@ static inline ssize_t kp_mode_store(struct kobject *kobj,
 static struct kobj_attribute kp_mode_attribute =
 	__ATTR(kp_mode, 0664, kp_mode_show, kp_mode_store);
 
+/*
+ * KProfiles -> CPU governor mapping.
+ *
+ * Disabled leaves the ROM's default governor in place; KProfiles only
+ * takes over the scheduler when it is actually enabled.
+ *
+ *   0 (Disabled)   -> NULL, leave governor as the ROM set it
+ *   1 (Battery)    -> schedutil
+ *   2 (Balanced)   -> vorpal
+ *   3 (Performance)-> reflex
+ */
+#ifdef CONFIG_CPU_FREQ
+static const char *kp_governor_map[] = {
+	[0] = NULL,
+	[1] = "schedutil",
+	[2] = "vorpal",
+	[3] = "reflex",
+};
+
+static void kp_switch_governors(unsigned int mode)
+{
+	unsigned int cpu;
+	const char *gov;
+
+	if (mode >= ARRAY_SIZE(kp_governor_map))
+		return;
+
+	/*
+	 * KProfiles disabled: leave the governor alone. The ROM's default
+	 * (e.g. reflex, schedutil, ...) is whatever the device tree or init
+	 * script sets at boot.
+	 */
+	gov = kp_governor_map[mode];
+	if (!gov)
+		return;
+
+	for_each_cpu(cpu, cpu_possible_mask) {
+		struct cpufreq_policy *pol;
+
+		if (!cpu_online(cpu))
+			continue;
+
+		pol = cpufreq_cpu_get(cpu);
+		if (!pol || !pol->governor)
+			continue;
+
+		if (strcmp(pol->governor->name, gov))
+			cpufreq_switch_governor(cpu, gov);
+
+		cpufreq_cpu_put(pol);
+	}
+}
+
+static int kp_governor_event(struct notifier_block *nb,
+			     unsigned long action, void *data)
+{
+	kp_switch_governors((unsigned long)data);
+	return NOTIFY_OK;
+}
+
+static struct notifier_block kp_governor_nb = {
+	.notifier_call = kp_governor_event,
+};
+
+int kp_governor_register(void)
+{
+	return blocking_notifier_chain_register(&kp_mode_notifier,
+						 &kp_governor_nb);
+}
+
+void kp_governor_unregister(void)
+{
+	blocking_notifier_chain_unregister(&kp_mode_notifier, &kp_governor_nb);
+}
+#endif /* CONFIG_CPU_FREQ */
+
 static ssize_t kp_active_show(struct kobject *kobj,
 			      struct kobj_attribute *attr, char *buf)
 {
@@ -500,6 +586,11 @@ static int __init kp_init(void)
 		return ret;
 	}
 
+#ifdef CONFIG_CPU_FREQ
+	if (kp_governor_register())
+		kp_err("Failed to register KProfiles governor client\n");
+#endif
+
 	kp_info("Kprofiles " KPROFILES_VERSION
 		" loaded successfully. For further details, visit https://github.com/dakkshesh07/Kprofiles/blob/main/README.md\n");
 	kp_info("Copyright (C) 2021-2023 Dakkshesh <dakkshesh5@gmail.com>.\n");
@@ -510,6 +601,9 @@ module_init(kp_init);
 
 static void __exit kp_exit(void)
 {
+#ifdef CONFIG_CPU_FREQ
+	kp_governor_unregister();
+#endif
 	kp_unregister_display_notifier();
 	sysfs_remove_group(kp_kobj, &kp_attr_group);
 	kobject_put(kp_kobj);

@@ -196,6 +196,7 @@ bool have_governor_per_policy(void);
 struct kobject *get_governor_parent_kobj(struct cpufreq_policy *policy);
 void cpufreq_enable_fast_switch(struct cpufreq_policy *policy);
 void cpufreq_disable_fast_switch(struct cpufreq_policy *policy);
+int cpufreq_switch_governor(unsigned int cpu, const char *governor);
 #else
 static inline unsigned int cpufreq_get(unsigned int cpu)
 {
@@ -210,6 +211,11 @@ static inline unsigned int cpufreq_quick_get_max(unsigned int cpu)
 	return 0;
 }
 static inline void disable_cpufreq(void) { }
+static inline int cpufreq_switch_governor(unsigned int cpu,
+					  const char *governor)
+{
+	return -ENODEV;
+}
 #endif
 
 #ifdef CONFIG_CPU_FREQ_STAT

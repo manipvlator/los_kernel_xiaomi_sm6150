@@ -2388,6 +2388,75 @@ unlock:
 }
 EXPORT_SYMBOL(cpufreq_update_policy);
 
+/**
+ *	cpufreq_switch_governor - switch the governor of a policy
+ *	@cpu: CPU whose policy will be switched
+ *	@governor: name of the governor to install
+ *
+ *	Mirrors store_scaling_governor(): parses @governor, looks up the
+ *	running governor, and applies the switch through cpufreq_set_policy().
+ *	Used by KProfiles to change the governor when the active profile
+ *	changes.
+ *
+ *	Return 0 on success, negative error on failure.
+ */
+int cpufreq_switch_governor(unsigned int cpu, const char *governor)
+{
+	struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+	struct cpufreq_policy new_policy;
+	char str_governor[CPUFREQ_NAME_LEN];
+	int ret;
+
+	if (!policy)
+		return -ENODEV;
+
+	if (strlen(governor) >= CPUFREQ_NAME_LEN) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!cpumask_test_cpu(cpu, policy->cpus)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	strncpy(str_governor, governor, sizeof(str_governor));
+	str_governor[sizeof(str_governor) - 1] = '\0';
+
+	down_write(&policy->rwsem);
+
+	if (policy_is_inactive(policy))
+		goto out_unlock;
+
+	memcpy(&new_policy, policy, sizeof(*policy));
+	new_policy.min = policy->user_policy.min;
+	new_policy.max = policy->user_policy.max;
+
+	if (cpufreq_parse_governor(str_governor, &new_policy.policy,
+				   &new_policy.governor)) {
+		ret = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (cpufreq_driver->get && !cpufreq_driver->setpolicy) {
+		if (cpufreq_suspended)
+			goto out_unlock;
+
+		new_policy.cur = cpufreq_update_current_freq(policy);
+		if (WARN_ON(!new_policy.cur))
+			goto out_unlock;
+	}
+
+	ret = cpufreq_set_policy(policy, &new_policy);
+
+out_unlock:
+	up_write(&policy->rwsem);
+out:
+	cpufreq_cpu_put(policy);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(cpufreq_switch_governor);
+
 /*********************************************************************
  *               BOOST						     *
  *********************************************************************/
