@@ -36,7 +36,7 @@ struct df_boost_drv {
 };
 
 #ifdef CONFIG_KPROFILES
-extern int kp_active_mode(void);
+extern bool kp_boost_disabled(void);
 #endif
 
 static void devfreq_input_unboost(struct work_struct *work);
@@ -67,7 +67,7 @@ static void __devfreq_boost_kick(struct boost_dev *b)
 		return;
 
 #ifdef CONFIG_KPROFILES
-	if (kp_active_mode() == 1)
+	if (kp_boost_disabled())
 		return;
 #endif
 
@@ -104,7 +104,7 @@ static void __devfreq_boost_kick_max(struct boost_dev *b,
 		return;
 
 #ifdef CONFIG_KPROFILES
-	if (kp_active_mode() == 1)
+	if (kp_boost_disabled())
 		return;
 #endif
 

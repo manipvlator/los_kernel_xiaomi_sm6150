@@ -275,6 +275,19 @@ int kp_active_mode(void)
 }
 EXPORT_SYMBOL(kp_active_mode);
 
+/*
+ * Boosts honor the selected profile only; the automatic screen-off override
+ * is ignored because boost drivers already track the panel state themselves.
+ */
+bool kp_boost_disabled(void)
+{
+	if (READ_ONCE(kp_override))
+		return READ_ONCE(kp_override_mode) == 1;
+
+	return READ_ONCE(kp_mode) == 1;
+}
+EXPORT_SYMBOL(kp_boost_disabled);
+
 /**
  * kp_trigger_mode_change_event - Trigger a mode change event
  *

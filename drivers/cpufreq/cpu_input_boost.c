@@ -49,7 +49,7 @@ struct boost_drv {
 };
 
 #ifdef CONFIG_KPROFILES
-extern int kp_active_mode(void);
+extern bool kp_boost_disabled(void);
 #endif
 
 static void input_unboost_worker(struct work_struct *work);
@@ -129,7 +129,7 @@ static void __cpu_input_boost_kick(struct boost_drv *b)
 		return;
 
 #ifdef CONFIG_KPROFILES
-	if (kp_active_mode() == 1)
+	if (kp_boost_disabled())
 		return;
 #endif
 
@@ -156,7 +156,7 @@ static void __cpu_input_boost_kick_max(struct boost_drv *b,
 		return;
 
 #ifdef CONFIG_KPROFILES
-	if (kp_active_mode() == 1)
+	if (kp_boost_disabled())
 		return;
 #endif
 
