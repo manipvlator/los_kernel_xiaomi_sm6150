@@ -61,6 +61,8 @@ static const struct of_device_id dsi_display_dt_match[] = {
 	{}
 };
 
+static unsigned int cur_refresh_rate = 60;
+
 struct dsi_display *primary_display;
 
 static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
@@ -7001,6 +7003,7 @@ int dsi_display_set_mode(struct dsi_display *display,
 	}
 
 	memcpy(display->panel->cur_mode, &adj_mode, sizeof(adj_mode));
+	WRITE_ONCE(cur_refresh_rate, adj_mode.timing.refresh_rate);
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -7795,6 +7798,11 @@ int dsi_display_pre_commit(void *display,
 	return rc;
 }
 
+unsigned int dsi_panel_get_refresh_rate(void)
+{
+	return READ_ONCE(cur_refresh_rate);
+}
+
 int dsi_display_enable(struct dsi_display *display)
 {
 	int rc = 0;
@@ -7809,6 +7817,9 @@ int dsi_display_enable(struct dsi_display *display)
 		pr_err("no valid mode set for the display");
 		return -EINVAL;
 	}
+	/* track the rate here too, continuous splash skips the enable below */
+	WRITE_ONCE(cur_refresh_rate,
+		display->panel->cur_mode->timing.refresh_rate);
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 
 	/* Engine states and panel states are populated during splash
