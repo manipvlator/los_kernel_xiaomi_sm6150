@@ -26,21 +26,34 @@ jobs:
           NEVER_DIE_ID: ${{ secrets.NEVER_DIE_ID }}
           BUILD_TIME: ${{ steps.time.outputs.build_time }}
         run: |
-          TEXT="🔨 AGNI REFORGE
-          ━━━━━━━━━━━━━━━━━━━━
-          <code>KSU-AOSP  ⏳  Waiting
-          KSU-OEM   ⏳  Waiting
-          Non-KSU   ⏳  Waiting</code>
-          ━━━━━━━━━━━━━━━━━━━━
+          esc() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
+          nb() { sed 's/^\([^ ]*\) /\1\&nbsp;/'; }
+          zw() { sed 's/\([-_]\)/\1\xe2\x80\x8b/g'; }
+          row() { printf '<tr><th align="left">%s</th><td>%s</td></tr>' "$(nb <<< "$1")" "$(esc <<< "$2" | nb | zw)"; }
+          lbl() { local s="$1" n="${2:-0}" i; for ((i=0; i<n; i++)); do s+="&nbsp;"; done; printf '%s' "$s"; }
 
-          Branch: ${GITHUB_REF_NAME}
-          Build: #${BUILD_TIME}
-          Run: #${GITHUB_RUN_NUMBER}"
+          btn() {
+            local u
+            u="$(esc <<< "$2" | sed 's/"/\&quot;/g')"
+            printf '<tg-button-row><tg-button type="url" url="%s" style="success">%s</tg-button></tg-button-row>' "$u" "$1"
+          }
 
-          R="$(curl -fsS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+          render() {
+            local h
+            h="<table bordered><tr><th colspan=\"2\" align=\"center\">🔥 AGNI Kernel Reforged</th></tr>"
+            h+="$(row "$(lbl "KSU-AOSP" 0)" "$1")$(row "$(lbl "KSU-OEM" 0)" "$2")$(row "$(lbl "Non-KSU" 0)" "$3")</table>"
+            h+="<table bordered>$(row "Branch" "${GITHUB_REF_NAME}")$(row "Build" "#${BUILD_TIME}")$(row "Run" "#${GITHUB_RUN_NUMBER}")</table>"
+            if [ -n "${4:-}" ]; then h+="<p>$(esc <<< "$4")</p>"; fi
+            printf '%s' "$h"
+          }
+
+          rich() { jq -nc --arg h "$1" '{html:$h, skip_entity_detection:true}'; }
+
+          TEXT="$(render "⏳ Waiting" "⏳ Waiting" "⏳ Waiting")"
+
+          R="$(curl -fsS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendRichMessage" \
             --data-urlencode "chat_id=${NEVER_DIE_ID}" \
-            --data-urlencode "parse_mode=HTML" \
-            --data-urlencode "text=${TEXT}")"
+            --data-urlencode "rich_message=$(rich "$TEXT")")"
 
           ID="$(echo "$R" | jq -r '.result.message_id // empty')"
           [ -n "$ID" ] || { echo "$R"; exit 1; }
@@ -61,8 +74,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -u
-          API="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100"
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100"
           LAST=""
+
+          DL="https://sourceforge.net/projects/dirty-project/files/Reforge-Kernel/${BUILD_TIME}/"
 
           duration() {
             local s="$1"
@@ -76,70 +91,98 @@ jobs:
             fi
           }
 
+          trunc() {
+            local t="$1" m="${2:-25}"
+            if [ "${#t}" -gt "$m" ]; then printf '%s...' "${t:0:$((m-3))}"; else printf '%s' "$t"; fi
+          }
+
           step() {
             local j="$1" s c n t start now elapsed
 
-            [ -z "$j" ] || [ "$j" = "null" ] && { echo "⏳  Waiting"; return; }
+            [ -z "$j" ] || [ "$j" = "null" ] && { echo "⏳ Waiting"; return; }
 
             s="$(jq -r '.status' <<< "$j")"
             c="$(jq -r '.conclusion // empty' <<< "$j")"
 
             if [ "$s" = completed ]; then
               if [ "$c" = success ]; then
-                echo "✅  Done"
+                echo "✅ Done"
               else
-                n="$(jq -r '.steps[] | select(.conclusion=="failure") | .name' <<< "$j" | head -1)"
-                echo "❌  ${n:-Failed}"
+                n="$(jq -r '.steps[] | select(.conclusion=="failure") | .name' <<< "$j" | head -1 | sed 's/[^ -~]//g; s/^ *//')"
+                echo "❌ $(trunc "${n:-Failed}" 19)"
               fi
               return
             fi
 
-            [ "$s" = queued ] && { echo "⏳  Waiting"; return; }
+            [ "$s" = queued ] && { echo "⏳ Waiting"; return; }
 
             if [ "$s" = in_progress ]; then
-              n="$(jq -r '.steps[] | select(.status=="in_progress") | .name' <<< "$j" | head -1)"
-              [ -n "$n" ] || { echo "🔄  Starting..."; return; }
+              n="$(jq -r '.steps[] | select(.status=="in_progress") | .name' <<< "$j" | head -1 | sed 's/[^ -~]//g; s/^ *//')"
+              [ -n "$n" ] || { echo "Starting..."; return; }
 
               t="$(jq -r '.steps[] | select(.status=="in_progress") | .started_at' <<< "$j" | head -1)"
               start="$(date -d "$t" +%s 2>/dev/null || echo 0)"
               now="$(date -u +%s)"
               elapsed=$((now-start))
-              echo "$(duration "$elapsed")  $n"
+              echo "$(trunc "$(duration "$elapsed") $n" 25)"
               return
             fi
 
-            echo "⏳  Waiting"
+            echo "⏳ Waiting"
           }
 
+          esc() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
+          nb() { sed 's/^\([^ ]*\) /\1\&nbsp;/'; }
+          zw() { sed 's/\([-_]\)/\1\xe2\x80\x8b/g'; }
+          row() { printf '<tr><th align="left">%s</th><td>%s</td></tr>' "$(nb <<< "$1")" "$(esc <<< "$2" | nb | zw)"; }
+          lbl() { local s="$1" n="${2:-0}" i; for ((i=0; i<n; i++)); do s+="&nbsp;"; done; printf '%s' "$s"; }
+
+          btns_cell() {
+            local b=""
+            b+='<tg-button-row><tg-button type="url" url="'$(printf '%s' "$DL" | sed 's/"/&quot;/g')'" style="success">⬇ Download</tg-button></tg-button-row>'
+            b+='<tg-button-row><tg-button type="url" url="https://t.me/KernelSU_group/3234" style="secondary">KSU Official</tg-button><tg-button type="url" url="https://t.me/ksunext_ci" style="secondary">KernelSU-Next</tg-button></tg-button-row>'
+            b+='<tg-button-row><tg-button type="url" url="https://t.me/kowsu_build" style="secondary">KowSU</tg-button><tg-button type="url" url="https://t.me/WebsArch" style="secondary">MamboSU</tg-button></tg-button-row>'
+            b+='<tg-button-row><tg-button type="url" url="https://github.com/backslashxx/KernelSU/releases" style="secondary">xxKSU</tg-button><tg-button type="url" url="https://t.me/BakaSU_Grp/4" style="secondary">BakaSU</tg-button></tg-button-row>'
+            b+='<tg-button-row><tg-button type="url" url="https://github.com/midori01/KernelSU/releases" style="secondary">midoriSU</tg-button><tg-button type="url" url="https://t.me/FinaSU" style="secondary">FinaSU</tg-button></tg-button-row>'
+            b+='<tg-button-row><tg-button type="url" url="https://t.me/KazeKSU/2" style="secondary">KazeSU</tg-button><tg-button type="url" url="https://t.me/Sukiksu/7114" style="secondary">SukiSU</tg-button></tg-button-row>'
+            printf '%s' "$b"
+          }
+
+          render() {
+            local h
+            h="<table bordered><tr><th colspan=\"2\" align=\"center\">🔥 AGNI Kernel Reforged</th></tr>"
+            h+="$(row "$(lbl "KSU-AOSP" 0)" "$1")$(row "$(lbl "KSU-OEM" 0)" "$2")$(row "$(lbl "Non-KSU" 0)" "$3")"
+            if [ -n "${4:-}" ]; then h+="$(row "Status" "$4")"; fi
+            h+="</table>"
+            h+="<table bordered>$(row "Branch" "${GITHUB_REF_NAME}")$(row "Build" "#${BUILD_TIME}")$(row "Run" "#${GITHUB_RUN_NUMBER}")</table>"
+            if [ "${6:-}" = "1" ]; then h+="$(btns_cell)"; fi
+            printf '%s' "$h"
+          }
+
+          rich() { jq -nc --arg h "$1" '{html:$h, skip_entity_detection:true}'; }
+
           update() {
-            local text="$1" markup="${2:-}" r d
+            local text="$1" markup="${2:-}" r d key
 
-            [ "$text" = "$LAST" ] && [ -z "$markup" ] && return 0
+            key="${text}|${markup}"
+            [ "$key" = "$LAST" ] && return 0
 
+            local args=(--data-urlencode "chat_id=${NEVER_DIE_ID}"
+                        --data-urlencode "message_id=${MESSAGE_ID}"
+                        --data-urlencode "rich_message=$(rich "$text")")
             if [ -n "$markup" ]; then
-              r="$(curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/editMessageText" \
-                --data-urlencode "chat_id=${NEVER_DIE_ID}" \
-                --data-urlencode "message_id=${MESSAGE_ID}" \
-                --data-urlencode "parse_mode=HTML" \
-                --data-urlencode "disable_web_page_preview=true" \
-                --data-urlencode "text=${text}" \
-                --data-urlencode "reply_markup=${markup}")"
-            else
-              r="$(curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/editMessageText" \
-                --data-urlencode "chat_id=${NEVER_DIE_ID}" \
-                --data-urlencode "message_id=${MESSAGE_ID}" \
-                --data-urlencode "parse_mode=HTML" \
-                --data-urlencode "disable_web_page_preview=true" \
-                --data-urlencode "text=${text}")"
+              args+=(--data-urlencode "reply_markup=${markup}")
             fi
 
-            d="$(jq -r '.description // empty' <<< "$r")"
-            if [ "$(jq -r '.ok // false' <<< "$r")" != true ] &&
+            r="$(curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/editMessageText" "${args[@]}")"
+
+            d="$(jq -r '.description // empty' <<< "$r" 2>/dev/null || true)"
+            if [ "$(jq -r '.ok // false' <<< "$r" 2>/dev/null || echo false)" != true ] &&
                [[ "$d" != *"message is not modified"* ]]; then
               echo "Telegram update failed: $d"
               return 1
             fi
-            LAST="$text"
+            LAST="$key"
           }
 
           while true; do
@@ -160,25 +203,9 @@ jobs:
             OC="$(jq -r '.conclusion // empty' <<< "$OEM")"
             NC="$(jq -r '.conclusion // empty' <<< "$NON")"
 
+            KEYBOARD=""
             if [ "$KC" = success ] && [ "$OC" = success ] && [ "$NC" = success ]; then
-              TEXT="🔨 AGNI REFORGE
-          ━━━━━━━━━━━━━━━━━━━━
-          <code>KSU-AOSP  ✅  Done
-          KSU-OEM   ✅  Done
-          Non-KSU   ✅  Done</code>
-          ━━━━━━━━━━━━━━━━━━━━
-
-          Branch: ${GITHUB_REF_NAME}
-          Build: #${BUILD_TIME}
-          Run: #${GITHUB_RUN_NUMBER}
-
-          ━━━━━━━━━━━━━━━━━━━━
-          ✅ All builds completed successfully."
-
-              KEYBOARD="$(jq -nc --arg url \
-                "https://sourceforge.net/projects/dirty-project/files/Reforge-Kernel/${BUILD_TIME}/" \
-                '{inline_keyboard:[[{"text":"📥 Download","url":$url}]]}')"
-
+              TEXT="$(render "$KSUS" "$OEMS" "$NONS" "✅ All builds completed successfully." "$DL" "1")"
               update "$TEXT" "$KEYBOARD" || true
               exit 0
             fi
@@ -187,37 +214,14 @@ jobs:
               if [[ "$KC" =~ ^(failure|cancelled|timed_out)$ ]] ||
                  [[ "$OC" =~ ^(failure|cancelled|timed_out)$ ]] ||
                  [[ "$NC" =~ ^(failure|cancelled|timed_out)$ ]]; then
-                TEXT="🔨 AGNI REFORGE
-          ━━━━━━━━━━━━━━━━━━━━
-          <code>KSU-AOSP  ${KSUS}
-          KSU-OEM   ${OEMS}
-          Non-KSU   ${NONS}</code>
-          ━━━━━━━━━━━━━━━━━━━━
-
-          Branch: ${GITHUB_REF_NAME}
-          Build: #${BUILD_TIME}
-          Run: #${GITHUB_RUN_NUMBER}
-
-          ━━━━━━━━━━━━━━━━━━━━
-          ❌ One or more builds failed."
-
-                update "$TEXT" || true
+                TEXT="$(render "$KSUS" "$OEMS" "$NONS" "❌ One or more builds failed.")"
+                update "$TEXT" "$KEYBOARD" || true
                 exit 0
               fi
             fi
 
-            TEXT="🔨 AGNI REFORGE
-          ━━━━━━━━━━━━━━━━━━━━
-          <code>KSU-AOSP  ${KSUS}
-          KSU-OEM   ${OEMS}
-          Non-KSU   ${NONS}</code>
-          ━━━━━━━━━━━━━━━━━━━━
-
-          Branch: ${GITHUB_REF_NAME}
-          Build: #${BUILD_TIME}
-          Run: #${GITHUB_RUN_NUMBER}"
-
-            update "$TEXT" || true
+            TEXT="$(render "$KSUS" "$OEMS" "$NONS")"
+            update "$TEXT" "$KEYBOARD" || true
             sleep 7
           done
 
@@ -388,7 +392,7 @@ jobs:
     steps:
       - name: 📊 Final Status
         run: |
-          echo "AGNI REFORGE FINAL STATUS"
+          echo "AGNI Kernel Reforged FINAL STATUS"
           echo "Tracker       : ${{ needs.tracker.result }}"
           echo "Reforging     : ${{ needs.Reforging.result }}"
           echo "Telegram Live : ${{ needs.telegram-live.result }}"
