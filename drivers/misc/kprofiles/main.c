@@ -95,10 +95,14 @@ DEFINE_SPINLOCK(kp_set_mode_lock);
 #define kp_info(fmt, ...) pr_info(fmt, ##__VA_ARGS__)
 
 static __always_inline void kp_trigger_mode_change_event(void);
+int kp_active_mode(void);
 
 #ifdef CONFIG_CPU_FREQ
+static void kp_switch_governors(unsigned int mode, bool force);
 int kp_governor_register(void);
 void kp_governor_unregister(void);
+#else
+static inline void kp_switch_governors(unsigned int mode, bool force) { }
 #endif
 
 /*
@@ -120,6 +124,7 @@ static int kp_auto_set(const char *val, const struct kernel_param *kp)
 
 	WRITE_ONCE(auto_kp, new_value);
 	kp_trigger_mode_change_event();
+	kp_switch_governors(kp_active_mode(), true);
 
 	return 0;
 }
@@ -443,6 +448,7 @@ static inline ssize_t kp_mode_store(struct kobject *kobj,
 
 	/* Let notifier clients see the new mode right away. */
 	kp_trigger_mode_change_event();
+	kp_switch_governors(kp_active_mode(), true);
 
 	return count;
 }
@@ -457,19 +463,57 @@ static struct kobj_attribute kp_mode_attribute =
  * takes over the scheduler when it is actually enabled.
  *
  *   0 (Disabled)   -> NULL, leave governor as the ROM set it
- *   1 (Battery)    -> schedutil
+ *   1 (Battery)    -> powersave
  *   2 (Balanced)   -> vorpal
  *   3 (Performance)-> reflex
+ *
+ * Screen and boost events follow the mode as usual, but skip the governor
+ * switch once userspace has replaced the governor we installed. A mode
+ * write, toggling auto_kp, or boot always reapplies the map.
  */
 #ifdef CONFIG_CPU_FREQ
 static const char *kp_governor_map[] = {
 	[0] = NULL,
-	[1] = "schedutil",
+	[1] = "powersave",
 	[2] = "vorpal",
 	[3] = "reflex",
 };
 
-static void kp_switch_governors(unsigned int mode)
+static char kp_gov_applied[CPUFREQ_NAME_LEN];
+
+/*
+ * A policy no longer running the governor we installed means userspace
+ * changed it. Automatic events must then leave the governor alone.
+ */
+static bool kp_governor_taken_over(void)
+{
+	unsigned int cpu;
+
+	if (!kp_gov_applied[0])
+		return false;
+
+	for_each_cpu(cpu, cpu_possible_mask) {
+		struct cpufreq_policy *pol;
+		bool taken;
+
+		if (!cpu_online(cpu))
+			continue;
+
+		pol = cpufreq_cpu_get(cpu);
+		if (!pol || !pol->governor)
+			continue;
+
+		taken = strcmp(pol->governor->name, kp_gov_applied);
+		cpufreq_cpu_put(pol);
+
+		if (taken)
+			return true;
+	}
+
+	return false;
+}
+
+static void kp_switch_governors(unsigned int mode, bool force)
 {
 	unsigned int cpu;
 	const char *gov;
@@ -484,6 +528,9 @@ static void kp_switch_governors(unsigned int mode)
 	 */
 	gov = kp_governor_map[mode];
 	if (!gov)
+		return;
+
+	if (!force && kp_governor_taken_over())
 		return;
 
 	for_each_cpu(cpu, cpu_possible_mask) {
@@ -501,12 +548,15 @@ static void kp_switch_governors(unsigned int mode)
 
 		cpufreq_cpu_put(pol);
 	}
+
+	strncpy(kp_gov_applied, gov, sizeof(kp_gov_applied) - 1);
+	kp_gov_applied[sizeof(kp_gov_applied) - 1] = '\0';
 }
 
 static int kp_governor_event(struct notifier_block *nb,
 			     unsigned long action, void *data)
 {
-	kp_switch_governors((unsigned long)data);
+	kp_switch_governors((unsigned long)data, false);
 	return NOTIFY_OK;
 }
 
@@ -590,6 +640,9 @@ static int __init kp_init(void)
 	if (kp_governor_register())
 		kp_err("Failed to register KProfiles governor client\n");
 #endif
+
+	/* Boot is an explicit trigger: apply the governor for the initial mode. */
+	kp_switch_governors(kp_active_mode(), true);
 
 	kp_info("Kprofiles " KPROFILES_VERSION
 		" loaded successfully. For further details, visit https://github.com/dakkshesh07/Kprofiles/blob/main/README.md\n");
