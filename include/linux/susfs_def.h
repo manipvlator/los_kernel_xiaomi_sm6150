@@ -2,6 +2,7 @@
 #define KSU_SUSFS_DEF_H
 
 #include <linux/bits.h>
+#include <linux/bitops.h>
 #include <linux/bitmap.h>
 #include <linux/string.h>
 #include <linux/version.h> // We need check kernel version.
@@ -27,6 +28,7 @@
 #define CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH 0x55551 /* deprecated */
 #define CMD_SUSFS_SET_SDCARD_ROOT_PATH 0x55552 /* deprecated */
 #define CMD_SUSFS_ADD_SUS_PATH_LOOP 0x55553
+#define CMD_SUSFS_SET_SUS_PATH_UID_FILTER 0x55554
 #define CMD_SUSFS_ADD_SUS_MOUNT 0x55560 /* deprecated */
 #define CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS 0x55561
 #define CMD_SUSFS_UMOUNT_FOR_ZYGOTE_ISO_SERVICE 0x55562 /* deprecated */
@@ -65,6 +67,12 @@
 #define FUSE_SUPER_MAGIC 0x65735546
 #endif
 
+#define SUSFS_APP_STR_BUF_SIZE 65535
+#define SUSFS_UID_FILTER_MIN_UID 10000
+#define SUSFS_UID_FILTER_MAX_UID 19999
+#define SUSFS_UID_FILTER_UID_NUM (SUSFS_UID_FILTER_MAX_UID - SUSFS_UID_FILTER_MIN_UID + 1)
+#define SUSFS_UID_FILTER_BITMAP_LEN BITS_TO_LONGS(SUSFS_UID_FILTER_UID_NUM)
+
 /*
  * mnt->mnt.mnt_flags => An 'int' primitive storing flag 'VFSMOUNT_MNT_FLAGS_'
  * task_struct->thread_info.flags => storing flag 'TIF_' which is an unsigned long primitive :D
@@ -92,19 +100,6 @@
 
 #define STATX_SUS_KSTAT 0x10000000U
 #define STATX_SUS_KSTAT_FUSE 0x20000000U
-
-/*****************************************/
-/* getpriority uid filter (bitmap)       */
-/*****************************************/
-/* The uids that are hidden from the apps that abuse the getpriority syscall
- * to find out the existing uids. Only the uids within the app uid range
- * (10000 - 19999) are supported.
- */
-#define SUSFS_PRIORITY_UID_FILTER_MIN_UID 10000
-#define SUSFS_PRIORITY_UID_FILTER_MAX_UID 19999
-#define SUSFS_PRIORITY_UID_FILTER_UID_NUM (SUSFS_PRIORITY_UID_FILTER_MAX_UID - SUSFS_PRIORITY_UID_FILTER_MIN_UID + 1)
-#define SUSFS_PRIORITY_UID_FILTER_BITMAP_LEN BITS_TO_LONGS(SUSFS_PRIORITY_UID_FILTER_UID_NUM)
-#define SUSFS_APP_STR_BUF_SIZE 65535
 
 static inline bool susfs_starts_with(const char *str, const char *prefix) {
     while (*prefix) {

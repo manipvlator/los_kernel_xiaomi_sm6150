@@ -16,6 +16,11 @@ obj-y :=	open.o read_write.o file_table.o super.o \
 
 obj-$(CONFIG_KSU_SUSFS) += susfs.o
 
+# detect kernel_read() signature instead of relying on the kernel version
+ifeq ($(shell grep -q "ssize_t kernel_read" $(srctree)/fs/read_write.c $(srctree)/fs/exec.c 2>/dev/null; echo $$?),0)
+CFLAGS_susfs.o += -DSUSFS_KERNEL_READ_NEW
+endif
+
 ifeq ($(CONFIG_BLOCK),y)
 obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
 else
